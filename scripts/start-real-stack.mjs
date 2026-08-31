@@ -5,10 +5,11 @@ import { fileURLToPath } from "node:url";
 const projectRoot = fileURLToPath(new URL("../", import.meta.url));
 const backendPort = Number(process.env.REAL_BACKEND_PORT || 3000);
 const backendUrl = `http://127.0.0.1:${backendPort}`;
+const backendListenHost = process.env.REAL_BACKEND_HOST || "127.0.0.1";
 const token = String(process.env.ESP32_API_TOKEN || "");
 const environment = {
   ...process.env,
-  REAL_BACKEND_HOST: "127.0.0.1",
+  REAL_BACKEND_HOST: backendListenHost,
   REAL_BACKEND_PORT: String(backendPort),
   ASSISTANT_BASE_URL: backendUrl,
   BACKEND_TIMEOUT_MS: process.env.BACKEND_TIMEOUT_MS || "15000"
@@ -88,3 +89,7 @@ process.once("SIGTERM", () => stop(0));
 console.log(`Stack real: emulador:8080 -> backend:${backendPort} -> Google Sheets`);
 console.log(`ASSISTANT_BASE_URL fijado de forma segura en ${backendUrl}.`);
 if (reuseBackend) console.log(`Backend compatible ya activo en ${backendUrl}; se reutilizará.`);
+else console.log(`Backend escuchará en ${backendListenHost}:${backendPort}.`);
+if (backendListenHost === "0.0.0.0") {
+  console.log("Modo LAN activo para ESP32 físico; mantenga el token y el firewall restringido a la red privada.");
+}

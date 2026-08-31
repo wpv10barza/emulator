@@ -207,6 +207,16 @@ Si ya existe un backend compatible en el puerto 3000, lo detecta y lo reutiliza
 en lugar de provocar `EADDRINUSE`. Si el puerto pertenece a otro programa,
 muestra el proceso que debe revisarse antes de continuar.
 
+Para un ESP32 físico, el backend debe escuchar también en la red privada:
+
+```bash
+set -a; source .env; set +a
+npm run real:lan
+```
+
+El firmware debe apuntar a la IPv4 LAN de Windows, nunca a `127.0.0.1` ni a
+la dirección interna cambiante de WSL. El token sigue siendo obligatorio.
+
 Alternativamente, inicie dos terminales en el mismo repositorio:
 
 ```bash
