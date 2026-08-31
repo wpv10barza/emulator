@@ -59,10 +59,16 @@ test("el puente de respaldo queda limitado al loopback de Windows", async () => 
   assert.match(source, /listenaddress=127\.0\.0\.1/);
   assert.doesNotMatch(source, /listenaddress=0\.0\.0\.0/);
   assert.match(source, /esp32-4848s040-emulator/);
+  assert.ok(source.includes("[string]$LogPath"));
+  assert.ok(source.includes("Start-Service -Name iphlpsvc"));
+  assert.ok(source.includes("ERROR DEL PUENTE WSL"));
 
   const launcherSource = await readFile(new URL("../scripts/wsl-forward.mjs", import.meta.url), "utf8");
   assert.doesNotMatch(launcherSource, /\$target,\s*;/);
   assert.match(launcherSource, /\$target,'-ConnectAddress'/);
+  assert.ok(launcherSource.includes('await verifyEmulator("127.0.0.1", connectPort)'));
+  assert.ok(launcherSource.includes("await verifyEmulator(connectAddress, connectPort)"));
+  assert.ok(launcherSource.includes("'-LogPath',$log"));
 
   const packageSource = await readFile(new URL("../package.json", import.meta.url), "utf8");
   const packageJson = JSON.parse(packageSource);
