@@ -60,8 +60,7 @@ const command = [
   `$source = ${psLiteral(windowsSource)}`,
   "$target = Join-Path $env:TEMP 'emulator-wsl-portproxy.ps1'",
   "Copy-Item -LiteralPath $source -Destination $target -Force",
-  "$arguments = @('-NoProfile','-ExecutionPolicy','Bypass','-File',$target,",
-  `  '-ConnectAddress',${psLiteral(connectAddress)},'-ListenPort','${listenPort}','-ConnectPort','${connectPort}')`,
+  `$arguments = @('-NoProfile','-ExecutionPolicy','Bypass','-File',$target,'-ConnectAddress',${psLiteral(connectAddress)},'-ListenPort','${listenPort}','-ConnectPort','${connectPort}')`,
   "$process = Start-Process -FilePath powershell.exe -Verb RunAs -ArgumentList $arguments -Wait -PassThru",
   "exit $process.ExitCode"
 ].join("; ");
