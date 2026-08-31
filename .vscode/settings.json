@@ -7,12 +7,13 @@
       "label": "Emulador ESP32-S3-4848S040",
       "onAutoForward": "openBrowserOnce",
       "protocol": "http",
-      "requireLocalPort": true
+      "requireLocalPort": false
     },
     "3000": {
       "label": "Backend Asistente 3C",
       "onAutoForward": "silent",
-      "protocol": "http"
+      "protocol": "http",
+      "requireLocalPort": false
     }
   }
 }
