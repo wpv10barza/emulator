@@ -90,6 +90,17 @@ async function bridge(request, response, url) {
     return sendJson(response, result.status, result.payload);
   }
 
+  const decisionMatch = url.pathname.match(/^\/bridge\/commands\/([A-Za-z0-9-]+)\/(confirm|reject)$/);
+  if (request.method === "POST" && decisionMatch) {
+    const input = await readBody(request);
+    const result = await callBackend(
+      "POST",
+      `/api/device/v1/commands/${decisionMatch[1]}/${decisionMatch[2]}`,
+      input
+    );
+    return sendJson(response, result.status, result.payload);
+  }
+
   if (request.method === "GET" && url.pathname === "/evidence.json") {
     return sendJson(response, 200, {
       evidence_type: "emulated_integration",

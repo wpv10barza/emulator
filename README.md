@@ -17,6 +17,9 @@ del Capítulo III de la tesis.
   `ESPERA CONFIRMACION`, `CAMBIO APLICADO`, `ORDEN CANCELADA` y `ERROR`;
 - proxy local que conserva el contrato del dispositivo y evita exponer el
   token en el navegador;
+- backend real integrado para localizar una tarea por `Nombre`/`TareaId`,
+  mostrar el cambio `Frecuencia`/`UnidadTiempo` y escribirlo en Google Sheets
+  únicamente después de confirmar en el emulador;
 - backend simulado determinista para pruebas sin Gemini ni Google Sheets;
 - pruebas unitarias y E2E en Ubuntu;
 - generación de `evidence.json`, registro del terminal, manifiesto SHA-256,
@@ -143,6 +146,75 @@ La respuesta `202` queda en `pending_confirmation`. La escritura externa solo
 puede producirse después de una confirmación humana en Asistente 3C; las
 pruebas automáticas de este repositorio utilizan únicamente el backend
 simulado y no acceden a Google Sheets.
+
+## Backend real consolidado en este repositorio
+
+`asistente-3c` confirmó el contrato y la lógica de búsqueda/escritura. Para
+evitar depender de otra ventana y de Gemini en una orden de frecuencia, este
+repositorio incorpora un backend determinista equivalente para Google Sheets.
+El flujo es:
+
+```text
+emulador:8080 -> backend-real:3000 -> vista previa de Data -> confirmar -> escritura L:M -> lectura de verificación
+```
+
+La orden verificada es:
+
+```text
+Cambia la Inspección de los paneles de distribución LP & DP :) a bimestral
+```
+
+Se interpreta como `Frecuencia=2` y `UnidadTiempo=Mes`. El backend audita
+primero que E/F/L/M/AF sean `TareaId`, `Nombre`, `Frecuencia`, `UnidadTiempo` y
+`Eliminar`; localiza una sola fila; presenta los valores anterior/nuevo; y
+vuelve a leer la fila antes y después de escribir. Si AF contiene `X`, muestra
+una advertencia que debe aceptarse expresamente.
+
+### Preparación local segura
+
+La cuenta de servicio debe tener permiso de **Editor** sobre la hoja. Guarde su
+JSON fuera del repositorio y no lo copie a GitHub:
+
+```bash
+cd ~/projects/emulator
+git pull --ff-only origin main
+npm ci
+cp -n .env.example .env
+nano .env
+```
+
+Configure en `.env` una ruta absoluta de WSL, el ID de la hoja y un token local:
+
+```env
+GOOGLE_APPLICATION_CREDENTIALS=/mnt/c/ruta/privada/service-account.json
+SPREADSHEET_ID=reemplazar-por-id-de-la-hoja
+SHEET_NAME=Data
+HEADER_ROW=4
+ESP32_API_TOKEN=un-token-local-largo
+```
+
+Inicie dos terminales en el mismo repositorio:
+
+```bash
+# Terminal 1: backend real
+set -a; source .env; set +a
+npm run real
+```
+
+```bash
+# Terminal 2: pantalla del emulador
+set -a; source .env; set +a
+npm start
+```
+
+Abra `http://127.0.0.1:18080` cuando use el puente WSL ya configurado. Pulse
+`PROBAR WSL`, envíe la orden, revise la fila/valores y use `CONFIRMAR Y APLICAR`.
+El estado `CAMBIO APLICADO` solo aparece después de que la lectura de
+verificación devuelve `2 Mes`.
+
+GitHub Actions no usa la cuenta de servicio ni la hoja real. Comprueba el mismo
+ciclo mediante un adaptador simulado, para que ningún push pueda modificar
+datos privados.
 
 ## Evidencias para la lista maestra de figuras
 

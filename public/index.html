@@ -24,6 +24,19 @@
     <section class="controls">
       <label for="command">Orden de prueba</label>
       <textarea id="command">Cambia la tarea J10 a mensual</textarea>
+      <section id="preview" class="preview" hidden>
+        <h2>Vista previa real</h2>
+        <p id="preview-target"></p>
+        <dl>
+          <div><dt>Antes</dt><dd id="preview-before"></dd></div>
+          <div><dt>Después</dt><dd id="preview-after"></dd></div>
+        </dl>
+        <p id="preview-warning" class="warning" hidden></p>
+        <div class="decision-row">
+          <button id="reject" type="button">CANCELAR</button>
+          <button id="confirm" type="button">CONFIRMAR Y APLICAR</button>
+        </div>
+      </section>
       <div class="demo-row">
         <span>Capturas controladas:</span>
         <button data-demo="booting">Inicio</button>
@@ -32,7 +45,7 @@
         <button data-demo="applied">Aplicado</button>
         <button data-demo="rejected">Cancelado</button>
       </div>
-      <p class="notice"><b>Evidencia:</b> interfaz y contrato HTTP emulados. No valida físicamente ST7701, GT911, PSRAM, audio ni GPIO.</p>
+      <p class="notice"><b>Seguridad:</b> el modo real exige vista previa y confirmación. GitHub Actions usa datos simulados y nunca recibe credenciales.</p>
       <a href="/evidence.json" target="_blank" rel="noreferrer">Abrir registro JSON de la sesión</a>
       <pre id="log" aria-live="polite"></pre>
     </section>
