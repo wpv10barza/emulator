@@ -49,20 +49,43 @@ ASSISTANT_BASE_URL='http://127.0.0.1:3000' \
 npm start
 ```
 
-Abra `http://127.0.0.1:8080`.
+El servidor escucha en `0.0.0.0`, entrega cada recurso con `Content-Length` y
+corta las consultas al backend después de cinco segundos. Primero compruebe el
+servicio dentro de Ubuntu/WSL:
 
-En Windows con WSL o VS Code Dev Containers, abra preferentemente
-`http://localhost:8080`. El servidor escucha en `0.0.0.0` para que el reenvío
-de puertos pueda alcanzarlo, entrega cada recurso con `Content-Length` y corta
-las consultas al backend después de cinco segundos. Para comprobar la carga:
+```bash
+curl --max-time 3 http://127.0.0.1:8080/healthz
+npm run doctor
+```
+
+`npm run doctor` distingue entre tres situaciones: servicio no iniciado,
+servicio disponible solo dentro de WSL y reenvío Windows→WSL operativo. También
+muestra las direcciones IPv4 directas que puede abrir desde Windows.
+
+### Acceso desde Windows, WSL o Dev Containers
+
+Si Chrome queda esperando y la terminal del servidor **no muestra `GET /`**, la
+solicitud no llegó al proceso Node.js. No es una lentitud de la página: falta el
+túnel entre Windows y WSL/Dev Container. En VS Code:
+
+1. Abra la carpeta desde WSL con `code ~/projects/emulator`.
+2. Seleccione la pestaña **Ports** junto a **Terminal**.
+3. Pulse **Forward a Port**, escriba `8080` y elija **Open in Browser**.
+4. Use la dirección local que muestre VS Code; normalmente será
+   `http://127.0.0.1:8080`.
+
+El repositorio incluye `.vscode/settings.json` para reenviar automáticamente
+los puertos 8080 y 3000 al abrir la carpeta en una ventana remota. Si el reenvío
+automático no está disponible, abra desde Windows una de las URL directas que
+imprime `npm start` o `npm run doctor`, por ejemplo
+`http://172.x.x.x:8080`.
+
+Una respuesta válida de la página debe incluir `HTTP/1.1 200 OK` y
+`content-length`:
 
 ```bash
 curl --max-time 3 -I http://127.0.0.1:8080/
 ```
-
-La respuesta debe incluir `HTTP/1.1 200 OK` y `content-length`. Si el navegador
-conserva una pestaña anterior en espera, ciérrela y abra una nueva después de
-actualizar el repositorio.
 
 ## Conexión con Asistente 3C real
 

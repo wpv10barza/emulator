@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 import { randomUUID } from "node:crypto";
+import { accessUrls } from "./lib/network.mjs";
 
 const root = fileURLToPath(new URL("./public/", import.meta.url));
 const port = Number(process.env.EMULATOR_PORT || 8080);
@@ -159,6 +160,8 @@ server.on("error", error => {
 server.listen(port, host, () => {
   console.log(`Emulador ESP32-S3-4848S040: http://localhost:${port}`);
   console.log(`Escuchando para WSL/contenedor en ${host}:${port}`);
+  for (const url of accessUrls(port)) console.log(`Acceso directo Windows/red: ${url}`);
+  console.log(`Si Chrome no genera GET /: VS Code > Ports > Forward a Port > ${port}.`);
   console.log(`Backend Asistente 3C: ${backend}`);
   if (!token) console.warn("ESP32_API_TOKEN no configurado: POST/GET de comandos sera rechazado.");
 });

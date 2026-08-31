@@ -1,0 +1,18 @@
+{
+  "remote.autoForwardPorts": true,
+  "remote.autoForwardPortsSource": "hybrid",
+  "remote.restoreForwardedPorts": true,
+  "remote.portsAttributes": {
+    "8080": {
+      "label": "Emulador ESP32-S3-4848S040",
+      "onAutoForward": "openBrowserOnce",
+      "protocol": "http",
+      "requireLocalPort": true
+    },
+    "3000": {
+      "label": "Backend Asistente 3C",
+      "onAutoForward": "silent",
+      "protocol": "http"
+    }
+  }
+}
