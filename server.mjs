@@ -156,8 +156,13 @@ const server = createServer(async (request, response) => {
     }
     await serveStatic(request, response, url.pathname);
   } catch (error) {
-    evidence.push({ at: new Date().toISOString(), error: String(error) });
-    sendJson(response, 502, { error: String(error.message || error) });
+    const original = String(error.message || error);
+    const timedOut = error.name === "TimeoutError" || /aborted due to timeout/i.test(original);
+    const message = timedOut
+      ? `El backend no respondió en ${backendTimeoutMs} ms: ${backend}. Inicie npm run real:stack.`
+      : original;
+    evidence.push({ at: new Date().toISOString(), error: message, backend });
+    sendJson(response, 502, { error: message, backend });
   }
 });
 
@@ -174,5 +179,8 @@ server.listen(port, host, () => {
   for (const url of accessUrls(port)) console.log(`Acceso directo Windows/red: ${url}`);
   console.log(`Si Chrome no genera GET /: VS Code > Ports > Forward a Port > ${port}.`);
   console.log(`Backend Asistente 3C: ${backend}`);
+  if (backend !== "http://127.0.0.1:3000") {
+    console.warn("Backend externo configurado. Para el backend consolidado use: npm run real:stack");
+  }
   if (!token) console.warn("ESP32_API_TOKEN no configurado: POST/GET de comandos sera rechazado.");
 });

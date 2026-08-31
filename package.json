@@ -6,6 +6,7 @@
     "start": "node server.mjs",
     "mock": "node mock-backend.mjs",
     "real": "node real-backend.mjs",
+    "real:stack": "node scripts/start-real-stack.mjs",
     "doctor": "node scripts/port-doctor.mjs",
     "wsl:forward": "node scripts/wsl-forward.mjs",
     "test": "node --test",

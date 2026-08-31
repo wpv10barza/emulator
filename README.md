@@ -193,7 +193,18 @@ HEADER_ROW=4
 ESP32_API_TOKEN=un-token-local-largo
 ```
 
-Inicie dos terminales en el mismo repositorio:
+La forma recomendada inicia ambos servicios en una sola terminal y reemplaza
+automáticamente cualquier `ASSISTANT_BASE_URL` antiguo de WSL:
+
+```bash
+set -a; source .env; set +a
+npm run real:stack
+```
+
+El comando fija internamente `127.0.0.1:3000`, espera hasta 15 segundos las
+operaciones de Google Sheets y detiene ambos procesos al pulsar `Ctrl+C`.
+
+Alternativamente, inicie dos terminales en el mismo repositorio:
 
 ```bash
 # Terminal 1: backend real
