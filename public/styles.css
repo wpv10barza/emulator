@@ -1,0 +1,34 @@
+:root { font-family: Inter, ui-sans-serif, system-ui, sans-serif; color: #e8f1f8; background: #111820; }
+* { box-sizing: border-box; }
+body { margin: 0; min-height: 100vh; padding: 28px; }
+main { display: flex; flex-wrap: wrap; gap: 28px; justify-content: center; align-items: flex-start; }
+.device { width: 526px; padding: 22px; border-radius: 34px; background: #20262c; box-shadow: 0 18px 55px #0008; }
+.screen { width: 480px; height: 480px; position: relative; overflow: hidden; border-radius: 16px; background: #0a1226; box-shadow: inset 0 0 0 3px #090b0e; transition: background .2s; }
+.brand { position: absolute; top: 18px; width: 100%; text-align: center; color: #aadfff; font: 700 20px ui-monospace, monospace; letter-spacing: 1px; }
+.face { position: absolute; inset: 98px 0 auto; height: 130px; }
+.face i { position: absolute; top: 4px; width: 75px; height: 76px; border-radius: 22px; background: white; }
+.face i:first-child { left: 105px; }
+.face i:nth-child(2) { right: 105px; }
+.face i::after { content: ""; position: absolute; width: 26px; height: 26px; border-radius: 50%; background: var(--screen-bg, #0a1226); left: 25px; top: 26px; }
+.face span { display: none; position: absolute; left: 205px; top: 106px; width: 70px; height: 20px; border-bottom: 5px solid white; border-radius: 50%; }
+.screen[data-state="applied"] .face span { display: block; }
+.screen[data-state="rejected"] .face i, .screen[data-state="error"] .face i { background: transparent; border-radius: 0; }
+.screen[data-state="rejected"] .face i::before, .screen[data-state="rejected"] .face i::after,
+.screen[data-state="error"] .face i::before, .screen[data-state="error"] .face i::after { content: ""; position: absolute; width: 78px; height: 5px; top: 38px; left: 0; background: white; border-radius: 4px; }
+.screen[data-state="rejected"] .face i::before, .screen[data-state="error"] .face i::before { transform: rotate(45deg); }
+.screen[data-state="rejected"] .face i::after, .screen[data-state="error"] .face i::after { transform: rotate(-45deg); }
+#state { position: absolute; top: 250px; width: 100%; text-align: center; font: 700 20px ui-monospace, monospace; }
+#detail { position: absolute; top: 278px; left: 28px; width: 424px; margin: 0; color: #d2e1eb; text-align: center; font: 14px ui-monospace, monospace; }
+.touch-row { position: absolute; left: 20px; bottom: 28px; display: flex; gap: 20px; }
+.touch-row button { width: 210px; height: 82px; border: 1px solid #b9d2e6; border-radius: 16px; color: white; font: 700 19px ui-monospace, monospace; cursor: pointer; }
+#health { background: #0f5287; }
+#send { background: #126949; }
+.controls { width: min(620px, 100%); padding: 22px; border: 1px solid #2b3b48; border-radius: 18px; background: #17212a; }
+label { display: block; margin-bottom: 8px; font-weight: 700; }
+textarea { width: 100%; min-height: 100px; resize: vertical; padding: 12px; border: 1px solid #405464; border-radius: 10px; color: #ecf7ff; background: #0d151c; font: inherit; }
+.demo-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; align-items: center; }
+.demo-row button { padding: 7px 10px; border: 1px solid #557084; border-radius: 7px; color: #eaf5fd; background: #243746; cursor: pointer; }
+.notice { padding: 12px; border-left: 4px solid #f0b342; color: #ffe2a8; background: #3b2c10; }
+a { color: #91d8ff; }
+pre { min-height: 150px; max-height: 260px; overflow: auto; padding: 12px; border-radius: 10px; color: #bfe9cc; background: #09100d; white-space: pre-wrap; }
+@media (max-width: 600px) { body { padding: 10px; } .device { transform-origin: top center; transform: scale(.68); margin-bottom: -155px; } }

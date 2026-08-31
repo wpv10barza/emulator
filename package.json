@@ -1,0 +1,14 @@
+{
+  "name": "esp32-4848s040-emulador-ubuntu",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "mock": "node mock-backend.mjs",
+    "test": "node --test",
+    "evidence": "node scripts/run-ubuntu-evidence.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

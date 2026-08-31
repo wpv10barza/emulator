@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Emulador ESP32-S3-4848S040</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main>
+    <section class="device" aria-label="Pantalla emulada de 480 por 480 pixeles">
+      <div id="screen" class="screen">
+        <div class="brand">ASISTENTE 3C</div>
+        <div id="face" class="face"><i></i><i></i><span></span></div>
+        <strong id="state">INICIANDO</strong>
+        <p id="detail">Emulador preparado</p>
+        <div class="touch-row">
+          <button id="health">PROBAR WSL</button>
+          <button id="send">ENVIAR 3C</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="controls">
+      <label for="command">Orden de prueba</label>
+      <textarea id="command">Cambia la tarea J10 a mensual</textarea>
+      <div class="demo-row">
+        <span>Capturas controladas:</span>
+        <button data-demo="booting">Inicio</button>
+        <button data-demo="offline">Sin red</button>
+        <button data-demo="pending_confirmation">Pendiente</button>
+        <button data-demo="applied">Aplicado</button>
+        <button data-demo="rejected">Cancelado</button>
+      </div>
+      <p class="notice"><b>Evidencia:</b> interfaz y contrato HTTP emulados. No valida físicamente ST7701, GT911, PSRAM, audio ni GPIO.</p>
+      <a href="/evidence.json" target="_blank" rel="noreferrer">Abrir registro JSON de la sesión</a>
+      <pre id="log" aria-live="polite"></pre>
+    </section>
+  </main>
+  <script type="module" src="/panel.js"></script>
+</body>
+</html>
