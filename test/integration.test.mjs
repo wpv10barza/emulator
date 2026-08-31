@@ -21,7 +21,10 @@ async function waitFor(url, attempts = 60) {
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     try {
       const response = await fetch(url);
-      if (response.ok) return response;
+      if (response.ok) {
+        await response.arrayBuffer();
+        return;
+      }
     } catch {}
     await new Promise(resolve => setTimeout(resolve, 100));
   }
@@ -35,16 +38,34 @@ test.after(() => {
 test("ejecuta el ciclo health -> pending -> applied en Ubuntu", async () => {
   start("mock-backend.mjs", {
     MOCK_BACKEND_PORT: String(backendPort),
+    MOCK_BACKEND_HOST: "0.0.0.0",
     ESP32_API_TOKEN: token
   });
   start("server.mjs", {
     EMULATOR_PORT: String(emulatorPort),
+    EMULATOR_HOST: "0.0.0.0",
     ASSISTANT_BASE_URL: `http://127.0.0.1:${backendPort}`,
     ESP32_API_TOKEN: token
   });
 
   const base = `http://127.0.0.1:${emulatorPort}`;
-  await waitFor(`${base}/`);
+  await waitFor(`${base}/healthz`);
+
+  const pageStarted = performance.now();
+  const pageResponse = await fetch(`${base}/`, { signal: AbortSignal.timeout(2000) });
+  const page = await pageResponse.text();
+  const pageElapsed = performance.now() - pageStarted;
+  assert.equal(pageResponse.status, 200);
+  assert.match(page, /Emulador ESP32-S3-4848S040/);
+  assert.equal(pageResponse.headers.get("content-length"), String(Buffer.byteLength(page)));
+  assert.ok(pageElapsed < 1000, `La pagina inicial demoro ${pageElapsed.toFixed(1)} ms`);
+
+  for (const asset of ["/styles.css", "/panel.js", "/panel-model.mjs"]) {
+    const response = await fetch(`${base}${asset}`, { signal: AbortSignal.timeout(2000) });
+    const body = await response.arrayBuffer();
+    assert.equal(response.status, 200, asset);
+    assert.equal(response.headers.get("content-length"), String(body.byteLength), asset);
+  }
 
   const health = await (await fetch(`${base}/bridge/health`)).json();
   assert.equal(health.ok, true);

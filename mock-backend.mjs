@@ -2,12 +2,18 @@ import { createServer } from "node:http";
 import { randomUUID } from "node:crypto";
 
 const port = Number(process.env.MOCK_BACKEND_PORT || 3000);
+const host = process.env.MOCK_BACKEND_HOST || "0.0.0.0";
 const token = process.env.ESP32_API_TOKEN || "ci-emulator-token";
 const commands = new Map();
 
 function send(response, status, payload) {
-  response.writeHead(status, { "content-type": "application/json; charset=utf-8" });
-  response.end(JSON.stringify(payload));
+  const data = Buffer.from(JSON.stringify(payload));
+  response.writeHead(status, {
+    "content-type": "application/json; charset=utf-8",
+    "content-length": String(data.byteLength),
+    "cache-control": "no-store"
+  });
+  response.end(data);
 }
 
 async function body(request) {
@@ -79,6 +85,6 @@ createServer(async (request, response) => {
   }
 
   return send(response, 404, { error: "not found" });
-}).listen(port, "127.0.0.1", () => {
-  console.log(`Backend simulado: http://127.0.0.1:${port}`);
+}).listen(port, host, () => {
+  console.log(`Backend simulado: http://localhost:${port} (${host})`);
 });

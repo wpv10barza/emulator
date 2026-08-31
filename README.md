@@ -51,6 +51,19 @@ npm start
 
 Abra `http://127.0.0.1:8080`.
 
+En Windows con WSL o VS Code Dev Containers, abra preferentemente
+`http://localhost:8080`. El servidor escucha en `0.0.0.0` para que el reenvío
+de puertos pueda alcanzarlo, entrega cada recurso con `Content-Length` y corta
+las consultas al backend después de cinco segundos. Para comprobar la carga:
+
+```bash
+curl --max-time 3 -I http://127.0.0.1:8080/
+```
+
+La respuesta debe incluir `HTTP/1.1 200 OK` y `content-length`. Si el navegador
+conserva una pestaña anterior en espera, ciérrela y abra una nueva después de
+actualizar el repositorio.
+
 ## Conexión con Asistente 3C real
 
 Inicie `asistente-3c` en el puerto 3000 y configure el mismo

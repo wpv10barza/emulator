@@ -7,6 +7,7 @@ const backendPort = 3200;
 const emulatorPort = 8200;
 const terminal = [];
 const children = [];
+const pagePerformance = [];
 
 function record(source, text) {
   const line = `[${source}] ${String(text).trimEnd()}`;
@@ -29,7 +30,10 @@ async function waitFor(url, attempts = 80) {
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     try {
       const response = await fetch(url);
-      if (response.ok) return;
+      if (response.ok) {
+        await response.arrayBuffer();
+        return;
+      }
     } catch {}
     await new Promise(resolve => setTimeout(resolve, 100));
   }
@@ -62,16 +66,32 @@ function svg(state, label, detail, color, face) {
 
 try {
   await mkdir("artifacts/screens", { recursive: true });
-  start("mock-backend.mjs", { MOCK_BACKEND_PORT: String(backendPort), ESP32_API_TOKEN: token }, "mock");
+  start("mock-backend.mjs", { MOCK_BACKEND_PORT: String(backendPort), MOCK_BACKEND_HOST: "0.0.0.0", ESP32_API_TOKEN: token }, "mock");
   start("server.mjs", {
     EMULATOR_PORT: String(emulatorPort),
+    EMULATOR_HOST: "0.0.0.0",
     ASSISTANT_BASE_URL: `http://127.0.0.1:${backendPort}`,
     ESP32_API_TOKEN: token
   }, "emulator");
 
   const base = `http://127.0.0.1:${emulatorPort}`;
-  await waitFor(`${base}/`);
-  record("test", "Pantalla 480x480 disponible");
+  await waitFor(`${base}/healthz`);
+  for (const path of ["/", "/styles.css", "/panel.js", "/panel-model.mjs"]) {
+    const started = performance.now();
+    const response = await fetch(`${base}${path}`, { signal: AbortSignal.timeout(2000) });
+    const data = await response.arrayBuffer();
+    const elapsedMs = Number((performance.now() - started).toFixed(2));
+    const metric = {
+      path,
+      status: response.status,
+      elapsed_ms: elapsedMs,
+      bytes: data.byteLength,
+      content_length: Number(response.headers.get("content-length"))
+    };
+    pagePerformance.push(metric);
+    record("page", `${path} -> ${response.status}, ${elapsedMs} ms, ${data.byteLength} bytes`);
+  }
+  record("test", "Pantalla 480x480 disponible sin respuestas fragmentadas");
 
   const healthResponse = await fetch(`${base}/bridge/health`);
   const health = await healthResponse.json();
@@ -111,6 +131,7 @@ try {
     display: "480x480",
     operating_system: "Ubuntu GitHub-hosted runner",
     sha256_evidence: digest,
+    page_performance: pagePerformance,
     limitations: ["ST7701 no validado fisicamente", "GT911 no validado fisicamente", "PSRAM/audio/GPIO no validados fisicamente"]
   }, null, 2)}\n`);
   record("result", `Evidencia generada. SHA-256: ${digest}`);
