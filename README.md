@@ -203,6 +203,9 @@ npm run real:stack
 
 El comando fija internamente `127.0.0.1:3000`, espera hasta 15 segundos las
 operaciones de Google Sheets y detiene ambos procesos al pulsar `Ctrl+C`.
+Si ya existe un backend compatible en el puerto 3000, lo detecta y lo reutiliza
+en lugar de provocar `EADDRINUSE`. Si el puerto pertenece a otro programa,
+muestra el proceso que debe revisarse antes de continuar.
 
 Alternativamente, inicie dos terminales en el mismo repositorio:
 
