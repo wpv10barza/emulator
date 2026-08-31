@@ -64,28 +64,71 @@ muestra las direcciones IPv4 directas que puede abrir desde Windows.
 
 ### Acceso desde Windows, WSL o Dev Containers
 
-Si Chrome queda esperando y la terminal del servidor **no muestra `GET /`**, la
-solicitud no llegó al proceso Node.js. No es una lentitud de la página: falta el
-túnel entre Windows y WSL/Dev Container. En VS Code:
+La configuración de reenvío solo se aplica cuando VS Code está conectado
+realmente a WSL o al contenedor. Elegir el perfil de terminal `wsl` dentro de
+una ventana local de Windows **no** convierte esa ventana en remota.
 
-1. Abra la carpeta desde WSL con `code ~/projects/emulator`.
-2. Seleccione la pestaña **Ports** junto a **Terminal**.
-3. Pulse **Forward a Port**, escriba `8080` y elija **Open in Browser**.
-4. Use la dirección local que muestre VS Code; normalmente será
-   `http://127.0.0.1:8080`.
-
-El repositorio incluye `.vscode/settings.json` para reenviar automáticamente
-los puertos 8080 y 3000 al abrir la carpeta en una ventana remota. Si el reenvío
-automático no está disponible, abra desde Windows una de las URL directas que
-imprime `npm start` o `npm run doctor`, por ejemplo
-`http://172.x.x.x:8080`.
-
-Una respuesta válida de la página debe incluir `HTTP/1.1 200 OK` y
-`content-length`:
+Antes de diagnosticar, confirme que la copia local fue actualizada y reinicie
+los procesos antiguos:
 
 ```bash
-curl --max-time 3 -I http://127.0.0.1:8080/
+cd ~/projects/emulator
+git pull --ff-only origin main
+git rev-parse --short HEAD
+npm test
 ```
+
+La versión corregida ejecuta once pruebas. Si todavía aparecen cinco, se está
+ejecutando una copia o un proceso anterior.
+
+#### Ventana remota WSL
+
+Abra el repositorio desde una terminal WSL con `code .` y compruebe que la
+esquina inferior izquierda de VS Code muestre `WSL: <distribución>`. El archivo
+`.vscode/settings.json` reenvía 8080 y 3000. Ya no exige que 8080 esté libre:
+si hay un túnel obsoleto, VS Code puede asignar otro puerto local y mostrarlo en
+la pestaña **Ports**. Use **Open in Browser** sobre la fila del emulador.
+
+#### Dev Container
+
+El repositorio incluye `.devcontainer/devcontainer.json` con
+`forwardPorts: [8080, 3000]`. Ejecute **Dev Containers: Rebuild and Reopen in
+Container** para aplicar la configuración; luego abra el puerto desde
+**Ports**. No basta con abrir una terminal llamada `wsl` en una ventana local.
+
+#### Puente de respaldo para una ventana local con terminal WSL
+
+Si no desea reabrir VS Code en modo remoto, mantenga `npm start` ejecutándose
+y, en otra terminal WSL del repositorio, ejecute:
+
+```bash
+npm run wsl:forward
+```
+
+Windows solicitará autorización de administrador y creará únicamente el puente
+de *loopback* `127.0.0.1:18080 → WSL:8080`. Después abra:
+
+```text
+http://127.0.0.1:18080
+```
+
+El puerto 18080 evita competir con el túnel 8080 que quedó abierto y sin
+respuesta en la captura. Para usar otro puerto local:
+
+```bash
+npm run wsl:forward -- --listen-port=18081
+```
+
+Compruebe en cualquier momento el servicio interno, el acceso desde Windows y
+las direcciones directas con:
+
+```bash
+curl --max-time 3 http://127.0.0.1:8080/healthz
+npm run doctor
+```
+
+El diagnóstico solo acepta como válida la respuesta JSON del emulador; un
+`HTTP 200` perteneciente a otro proceso no se considera éxito.
 
 ## Conexión con Asistente 3C real
 

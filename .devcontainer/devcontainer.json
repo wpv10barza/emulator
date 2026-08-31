@@ -1,0 +1,25 @@
+{
+  "name": "Emulador ESP32-S3-4848S040",
+  "image": "mcr.microsoft.com/devcontainers/typescript-node:1-24-bookworm",
+  "forwardPorts": [8080, 3000],
+  "portsAttributes": {
+    "8080": {
+      "label": "Emulador ESP32-S3-4848S040",
+      "protocol": "http",
+      "onAutoForward": "openBrowserOnce",
+      "requireLocalPort": false
+    },
+    "3000": {
+      "label": "Backend Asistente 3C",
+      "protocol": "http",
+      "onAutoForward": "silent",
+      "requireLocalPort": false
+    }
+  },
+  "containerEnv": {
+    "EMULATOR_HOST": "0.0.0.0",
+    "MOCK_BACKEND_HOST": "0.0.0.0"
+  },
+  "postCreateCommand": "npm ci",
+  "remoteUser": "node"
+}

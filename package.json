@@ -6,6 +6,7 @@
     "start": "node server.mjs",
     "mock": "node mock-backend.mjs",
     "doctor": "node scripts/port-doctor.mjs",
+    "wsl:forward": "node scripts/wsl-forward.mjs",
     "test": "node --test",
     "evidence": "node scripts/run-ubuntu-evidence.mjs"
   },
