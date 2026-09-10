@@ -71,6 +71,11 @@ test("ejecuta el ciclo health -> pending -> applied en Ubuntu", async () => {
   assert.equal(health.ok, true);
   assert.equal(health.requires_human_confirmation, true);
 
+  const metrics = await (await fetch(`${base}/bridge/metrics`)).json();
+  assert.equal(metrics.ok, true);
+  assert.equal(metrics.auth.scheme, "x-3c-device-token");
+  assert.equal(metrics.auth.configured, true);
+
   const createdResponse = await fetch(`${base}/bridge/commands`, {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -85,8 +90,13 @@ test("ejecuta el ciclo health -> pending -> applied en Ubuntu", async () => {
   const second = await (await fetch(`${base}/bridge/commands/${created.command_id}`)).json();
   assert.equal(second.command.status, "applied");
 
+  const metricsAfter = await (await fetch(`${base}/bridge/metrics`)).json();
+  assert.equal(metricsAfter.commands.total_created, 1);
+  assert.equal(metricsAfter.commands.applied, 1);
+  assert.equal(metricsAfter.commands.pending_confirmation, 0);
+
   const evidence = await (await fetch(`${base}/evidence.json`)).json();
   assert.equal(evidence.evidence_type, "emulated_integration");
-  assert.equal(evidence.events.length, 4);
-  assert.deepEqual(evidence.events.map(event => event.status), [200, 202, 200, 200]);
+  assert.equal(evidence.events.length, 7);
+  assert.deepEqual(evidence.events.map(event => event.status), [200, 200, 202, 200, 200, 200, 200]);
 });
