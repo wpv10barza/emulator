@@ -6,6 +6,10 @@ const host = process.env.MOCK_BACKEND_HOST || "0.0.0.0";
 const token = process.env.ESP32_API_TOKEN || "ci-emulator-token";
 const commands = new Map();
 const startedAt = Date.now();
+const cellLockActive = process.env.CELL_LOCK_ACTIVE !== "false";
+const cellLockTtlMs = Math.max(1000, Number(process.env.CELL_LOCK_TTL_S || 120) * 1000);
+const cellLockUntil = cellLockActive ? startedAt + cellLockTtlMs : 0;
+const cellLockScope = process.env.CELL_LOCK_SCOPE || "maintenance-resource-cells";
 const metrics = {
   requests_total: 0,
   requests_unauthorized: 0,
@@ -33,6 +37,15 @@ function authorized(request) {
   return request.headers["x-3c-device-token"] === token;
 }
 
+function cellLockStatus() {
+  const ttlMs = cellLockUntil ? Math.max(0, cellLockUntil - Date.now()) : 0;
+  return {
+    active: cellLockActive && ttlMs > 0,
+    scope: cellLockScope,
+    ttl_s: Number((ttlMs / 1000).toFixed(3))
+  };
+}
+
 createServer(async (request, response) => {
   const url = new URL(request.url, `http://${request.headers.host || "localhost"}`);
   metrics.requests_total += 1;
@@ -45,7 +58,8 @@ createServer(async (request, response) => {
       accepts_commands: true,
       requires_human_confirmation: true,
       protocol_version: "1.0",
-      supports_status_polling: true
+      supports_status_polling: true,
+      cell_lock: cellLockStatus()
     });
   }
 
@@ -57,6 +71,7 @@ createServer(async (request, response) => {
         scheme: "x-3c-device-token",
         configured: Boolean(token)
       },
+      cell_lock: cellLockStatus(),
       uptime_s: Number(((Date.now() - startedAt) / 1000).toFixed(3)),
       commands: {
         pending_confirmation: [...commands.values()].filter(command => command.status === "pending_confirmation").length,
@@ -84,7 +99,8 @@ createServer(async (request, response) => {
       device_id: input.device_id,
       text: input.text,
       status: "pending_confirmation",
-      polls: 0
+      polls: 0,
+      cell_lock: cellLockStatus()
     };
     commands.set(id, command);
     metrics.commands_created += 1;
@@ -93,6 +109,7 @@ createServer(async (request, response) => {
       request_id: command.request_id,
       status: command.status,
       requires_human_confirmation: true,
+      cell_lock: command.cell_lock,
       status_path: `/api/device/v1/commands/${id}`
     });
   }
@@ -113,7 +130,8 @@ createServer(async (request, response) => {
         request_id: command.request_id,
         device_id: command.device_id,
         status: command.status,
-        result: command.result
+        result: command.result,
+        cell_lock: cellLockStatus()
       }
     });
   }
@@ -121,4 +139,5 @@ createServer(async (request, response) => {
   return send(response, 404, { error: "not found" });
 }).listen(port, host, () => {
   console.log(`Backend simulado: http://localhost:${port} (${host})`);
+  console.log(`Bloqueo temporal de celdas: ${JSON.stringify(cellLockStatus())}`);
 });
