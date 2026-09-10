@@ -34,6 +34,26 @@ Cerrar la prueba reproducible del emulador de pantalla táctil de **480 × 480 p
 - [ ] Flasheo y monitor serial del equipo real.
 - [ ] Integración E2E física con ESP-Hi C3 y Waveshare AMOLED 2.16.
 
+## Evidencia de ejecución
+
+La **GitHub Actions Run #20** de la rama `feat/emulation-metrics-auth-checklist` terminó con resultado **✅ `success`** sobre el commit `8a644411d76277449f108cbd8793b51e98819372`.
+
+Jobs validados:
+
+- `Pinned backend and panel builds`: ✅ `success`.
+- `Emulator, contract and figure evidence`: ✅ `success`.
+- Validación y build de `asistente-3c`: ✅ `success`.
+- Compilación del firmware ESP32-S3-4848S040: ✅ `success`.
+- Pruebas unitarias e integración: ✅ `success`.
+- Generación de evidencia de terminal/pantalla y PNG de tesis: ✅ `success`.
+
+Artefactos generados y vigentes:
+
+- `pinned-upstream-builds` — SHA-256 `7035dbd3847268b69867e6f78155a8128127220e1f6db916633a5ddc7e202b8e`.
+- `esp32-4848s040-emulator-evidence` — SHA-256 `7cad762d98b126302c720e8aa1e47b0aab6cf94644d01318a72ff46d5d28b49b`.
+
+La PR **#6** permanece abierta y mergeable. Por ello, el estado de cierre de software queda como **validado por CI, pendiente de aprobación/merge**, mientras los ensayos físicos permanecen explícitamente fuera del alcance de esta evidencia.
+
 ## Comandos de verificación
 
 ```bash
@@ -72,3 +92,9 @@ Esta tarea acredita **emulación funcional e integración HTTP reproducible en s
 ## Autenticación
 
 La autenticación entre emulador y backend usa el encabezado `x-3c-device-token`. El valor se obtiene de `ESP32_API_TOKEN` y no debe almacenarse en archivos versionados.
+
+## Estado transaccional de cierre
+
+**Estado:** 🟡 `Validated / Pending Merge`
+
+**Condición restante:** aprobación humana/final y posterior merge de la PR #6 en `main`.
