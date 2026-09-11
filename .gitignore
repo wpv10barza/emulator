@@ -4,3 +4,9 @@ artifacts/
 .env
 .env.*
 !.env.example
+
+# Aider local files
+.aider.chat.history.md
+.aider.input.history
+.aider.tags.cache.v4/
+.aider*
