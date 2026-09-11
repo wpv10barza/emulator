@@ -8,3 +8,4 @@ credentials/
 service-account*.json
 *-service-account.json
 credentials*.json
+.aider*
