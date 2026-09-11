@@ -4,3 +4,8 @@ artifacts/
 .env
 .env.*
 !.env.example
+credentials/
+service-account*.json
+*-service-account.json
+credentials*.json
+.aider*

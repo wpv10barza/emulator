@@ -25,7 +25,20 @@ main { display: flex; flex-wrap: wrap; gap: 28px; justify-content: center; align
 #send { background: #126949; }
 .controls { width: min(620px, 100%); padding: 22px; border: 1px solid #2b3b48; border-radius: 18px; background: #17212a; }
 label { display: block; margin-bottom: 8px; font-weight: 700; }
-textarea { width: 100%; min-height: 100px; resize: vertical; padding: 12px; border: 1px solid #405464; border-radius: 10px; color: #ecf7ff; background: #0d151c; font: inherit; }
+textarea { width: 100%; min-height: 100px; resize: vertical; padding: 12px; border: 1px solid #405464; border-radius: 10px; color: #ecf7ff; background: #0d150c; font: inherit; }
+.preview { margin-top: 16px; padding: 16px; border: 1px solid #d39d35; border-radius: 12px; background: #2d250f; }
+.preview h2 { margin: 0 0 8px; font-size: 18px; }
+.preview p { margin: 6px 0; }
+.preview dl { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 12px 0; }
+.preview dl div { padding: 10px; border-radius: 8px; background: #111a21; }
+.preview dt { color: #9fb3c2; font-size: 12px; }
+.preview dd { margin: 4px 0 0; font-weight: 700; }
+.warning { padding: 10px; border-left: 4px solid #ffb52e; color: #ffe2a8; background: #4a3104; }
+.decision-row { display: flex; gap: 10px; justify-content: flex-end; margin-top: 12px; }
+.decision-row button { padding: 10px 14px; border: 1px solid #8ca6b8; border-radius: 8px; color: white; cursor: pointer; }
+#reject { background: #7a351f; }
+#confirm { background: #177044; }
+.decision-row button:disabled { cursor: wait; opacity: .55; }
 .demo-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; align-items: center; }
 .demo-row button { padding: 7px 10px; border: 1px solid #557084; border-radius: 7px; color: #eaf5fd; background: #243746; cursor: pointer; }
 .notice { padding: 12px; border-left: 4px solid #f0b342; color: #ffe2a8; background: #3b2c10; }

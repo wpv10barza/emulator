@@ -52,33 +52,50 @@ createServer(async (request, response) => {
       device_id: input.device_id,
       text: input.text,
       status: "pending_confirmation",
-      polls: 0
+      preview: {
+        sheet: "Data",
+        row: 5,
+        task_id: "102496",
+        task_name: "Inspección de los paneles de distribución LP & DP :)",
+        before: { frequency: 3, unit: "Mes" },
+        after: { frequency: 2, unit: "Mes" },
+        warnings: [],
+        evidence_type: "simulated_fixture"
+      }
     };
     commands.set(id, command);
     return send(response, 202, {
       command_id: id,
       request_id: command.request_id,
       status: command.status,
+      preview: command.preview,
       requires_human_confirmation: true,
       status_path: `/api/device/v1/commands/${id}`
     });
+  }
+
+  const decision = url.pathname.match(/^\/api\/device\/v1\/commands\/([A-Za-z0-9-]+)\/(confirm|reject)$/);
+  if (request.method === "POST" && decision) {
+    const command = commands.get(decision[1]);
+    if (!command) return send(response, 404, { error: "Comando no encontrado." });
+    command.status = decision[2] === "confirm" ? "applied" : "rejected";
+    command.result = decision[2] === "confirm"
+      ? { row: 5, before: { frequency: 3, unit: "Mes" }, after: { frequency: 2, unit: "Mes" }, verified: true }
+      : { message: "Cancelación simulada; no se escribió." };
+    return send(response, 200, { command });
   }
 
   const match = url.pathname.match(/^\/api\/device\/v1\/commands\/([A-Za-z0-9-]+)$/);
   if (request.method === "GET" && match) {
     const command = commands.get(match[1]);
     if (!command) return send(response, 404, { error: "Comando no encontrado." });
-    command.polls += 1;
-    if (command.polls >= 2) {
-      command.status = "applied";
-      command.result = "Confirmacion simulada en Ubuntu";
-    }
     return send(response, 200, {
       command: {
         id: command.id,
         request_id: command.request_id,
         device_id: command.device_id,
         status: command.status,
+        preview: command.preview,
         result: command.result
       }
     });

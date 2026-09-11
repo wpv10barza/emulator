@@ -82,11 +82,19 @@ test("ejecuta el ciclo health -> pending -> applied en Ubuntu", async () => {
 
   const first = await (await fetch(`${base}/bridge/commands/${created.command_id}`)).json();
   assert.equal(first.command.status, "pending_confirmation");
+  assert.equal(first.command.preview.before.frequency, 3);
+  assert.equal(first.command.preview.after.frequency, 2);
+  const confirmation = await (await fetch(`${base}/bridge/commands/${created.command_id}/confirm`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ accept_warnings: true })
+  })).json();
+  assert.equal(confirmation.command.status, "applied");
   const second = await (await fetch(`${base}/bridge/commands/${created.command_id}`)).json();
   assert.equal(second.command.status, "applied");
 
   const evidence = await (await fetch(`${base}/evidence.json`)).json();
   assert.equal(evidence.evidence_type, "emulated_integration");
-  assert.equal(evidence.events.length, 4);
-  assert.deepEqual(evidence.events.map(event => event.status), [200, 202, 200, 200]);
+  assert.equal(evidence.events.length, 5);
+  assert.deepEqual(evidence.events.map(event => event.status), [200, 202, 200, 200, 200]);
 });

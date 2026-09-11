@@ -105,11 +105,21 @@ try {
   const command = await commandResponse.json();
   record("test", `POST command -> ${commandResponse.status} ${JSON.stringify(command)}`);
 
-  for (let poll = 1; poll <= 2; poll += 1) {
-    const response = await fetch(`${base}/bridge/commands/${command.command_id}`);
-    const payload = await response.json();
-    record("test", `GET status ${poll} -> ${response.status} ${JSON.stringify(payload)}`);
-  }
+  const pendingResponse = await fetch(`${base}/bridge/commands/${command.command_id}`);
+  const pending = await pendingResponse.json();
+  record("test", `GET pending -> ${pendingResponse.status} ${JSON.stringify(pending)}`);
+
+  const confirmResponse = await fetch(`${base}/bridge/commands/${command.command_id}/confirm`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ accept_warnings: false })
+  });
+  const confirmed = await confirmResponse.json();
+  record("test", `POST confirm -> ${confirmResponse.status} ${JSON.stringify(confirmed)}`);
+
+  const appliedResponse = await fetch(`${base}/bridge/commands/${command.command_id}`);
+  const applied = await appliedResponse.json();
+  record("test", `GET applied -> ${appliedResponse.status} ${JSON.stringify(applied)}`);
 
   const evidence = await (await fetch(`${base}/evidence.json`)).json();
   await writeFile("artifacts/evidence.json", `${JSON.stringify(evidence, null, 2)}\n`);
@@ -138,7 +148,7 @@ try {
   await writeFile("artifacts/figure-captions.md", `# Rótulos para la tesis\n\n` +
     `1. **Conexión del panel virtual con WSL.** Captura obtenida mediante emulación funcional del ESP32-S3-4848S040 en Ubuntu. No constituye validación física del ST7701 o GT911.\n` +
     `2. **Solicitud pendiente de confirmación humana.** Estado generado por el contrato HTTP emulado y registrado en evidence.json.\n` +
-    `3. **Resultado aplicado en el panel virtual.** Confirmación simulada con fines de prueba; no implica escritura en Google Sheets.\n` +
+    `3. **Resultado aplicado en el panel virtual.** Confirmación ejecutada contra una copia simulada en CI; no implica escritura en Google Sheets.\n` +
     `4. **Resultado rechazado en el panel virtual.** Escenario controlado para comprobar la representación de estados.\n`);
   await writeFile("artifacts/ubuntu-terminal.log", `${terminal.join("\n")}\n`);
 } finally {

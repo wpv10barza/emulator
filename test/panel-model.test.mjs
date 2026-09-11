@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  normalizePreview,
   normalizeResult,
   normalizeStatus,
   stateDefinition,
@@ -15,6 +16,11 @@ test("interpreta la respuesta anidada del backend vigente", () => {
 
 test("conserva compatibilidad con una respuesta plana", () => {
   assert.equal(normalizeStatus({ status: "rejected" }), "rejected");
+});
+
+test("extrae la vista previa del backend real", () => {
+  const preview = { row: 5, before: { frequency: 3 }, after: { frequency: 2 } };
+  assert.deepEqual(normalizePreview({ command: { preview } }), preview);
 });
 
 test("health solo queda listo cuando acepta comandos", () => {

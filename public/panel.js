@@ -1,4 +1,5 @@
 import {
+  normalizePreview,
   normalizeResult,
   normalizeStatus,
   stateDefinition,
@@ -10,7 +11,16 @@ const stateElement = document.querySelector("#state");
 const detailElement = document.querySelector("#detail");
 const logElement = document.querySelector("#log");
 const commandElement = document.querySelector("#command");
+const previewElement = document.querySelector("#preview");
+const previewTarget = document.querySelector("#preview-target");
+const previewBefore = document.querySelector("#preview-before");
+const previewAfter = document.querySelector("#preview-after");
+const previewWarning = document.querySelector("#preview-warning");
+const confirmButton = document.querySelector("#confirm");
+const rejectButton = document.querySelector("#reject");
 let pollTimer;
+let pendingCommandId = "";
+let pendingPreview = null;
 
 function log(message, payload) {
   const suffix = payload ? `\n${JSON.stringify(payload, null, 2)}` : "";
@@ -24,6 +34,24 @@ function render(state, detail = "") {
   screen.style.setProperty("--screen-bg", definition.background);
   stateElement.textContent = definition.label;
   detailElement.textContent = detail || definition.label;
+}
+
+function showPreview(commandId, preview) {
+  pendingCommandId = commandId;
+  pendingPreview = preview;
+  previewElement.hidden = false;
+  previewTarget.textContent = `Fila ${preview.row} · TareaId ${preview.task_id || "—"} · ${preview.task_name}`;
+  previewBefore.textContent = `${preview.before.frequency} ${preview.before.unit}`;
+  previewAfter.textContent = `${preview.after.frequency} ${preview.after.unit}`;
+  const warnings = preview.warnings || [];
+  previewWarning.hidden = warnings.length === 0;
+  previewWarning.textContent = warnings.join(" ");
+}
+
+function clearPreview() {
+  pendingCommandId = "";
+  pendingPreview = null;
+  previewElement.hidden = true;
 }
 
 async function jsonFetch(path, options) {
@@ -52,9 +80,12 @@ async function poll(commandId) {
     const payload = await jsonFetch(`/bridge/commands/${commandId}`);
     const status = normalizeStatus(payload);
     const result = normalizeResult(payload);
-    render(status, result || (status === "pending_confirmation" ? "Confirme en Asistente 3C" : status));
+    const preview = normalizePreview(payload);
+    render(status, result || (status === "pending_confirmation" ? "Confirme la vista previa" : status));
     log(`GET /api/device/v1/commands/${commandId}`, payload);
-    if (status === "pending_confirmation") pollTimer = setTimeout(() => poll(commandId), 2500);
+    if (status === "pending_confirmation" && preview) showPreview(commandId, preview);
+    else if (status === "pending_confirmation") pollTimer = setTimeout(() => poll(commandId), 2500);
+    else clearPreview();
   } catch (error) {
     render("error", error.message);
     log("Fallo de consulta de estado", error.payload);
@@ -69,18 +100,46 @@ async function sendCommand() {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ text: commandElement.value })
     });
-    render("pending_confirmation", "Confirme en Asistente 3C");
+    render("pending_confirmation", "Confirme la vista previa");
     log("POST /api/device/v1/commands", payload);
     const commandId = payload.command_id || payload.command?.id;
-    if (commandId) poll(commandId);
+    const preview = normalizePreview(payload);
+    if (commandId && preview) showPreview(commandId, preview);
+    else if (commandId) poll(commandId);
   } catch (error) {
     render("error", error.message);
     log("Fallo de envio", error.payload);
   }
 }
 
+async function decide(action) {
+  if (!pendingCommandId) return;
+  confirmButton.disabled = true;
+  rejectButton.disabled = true;
+  try {
+    render("busy", action === "confirm" ? "Escribiendo y verificando Google Sheets" : "Cancelando orden");
+    const payload = await jsonFetch(`/bridge/commands/${pendingCommandId}/${action}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ accept_warnings: action === "confirm" && Boolean(pendingPreview?.warnings?.length) })
+    });
+    const status = normalizeStatus(payload);
+    render(status, normalizeResult(payload) || status);
+    log(`POST decisión ${action}`, payload);
+    clearPreview();
+  } catch (error) {
+    render("error", error.message);
+    log(`Fallo al ${action}`, error.payload);
+  } finally {
+    confirmButton.disabled = false;
+    rejectButton.disabled = false;
+  }
+}
+
 document.querySelector("#health").addEventListener("click", health);
 document.querySelector("#send").addEventListener("click", sendCommand);
+confirmButton.addEventListener("click", () => decide("confirm"));
+rejectButton.addEventListener("click", () => decide("reject"));
 document.querySelectorAll("[data-demo]").forEach(button => {
   button.addEventListener("click", () => {
     clearTimeout(pollTimer);

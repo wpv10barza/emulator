@@ -32,6 +32,13 @@ jobs:
           mkdir -p artifacts
           npm test 2>&1 | tee artifacts/node-tests.log
 
+      - name: Verify credentials are not tracked
+        run: |
+          if git ls-files | grep -Ei '(^|/)(service-account|credentials?|folkloric-drive).*\.json$'; then
+            echo "Se detectó un archivo de credenciales versionado." >&2
+            exit 1
+          fi
+
       - name: Generate Ubuntu terminal and screen evidence
         run: npm run evidence 2>&1 | tee artifacts/evidence-command.log
 
