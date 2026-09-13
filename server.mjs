@@ -11,6 +11,7 @@ const host = process.env.EMULATOR_HOST || "0.0.0.0";
 const backend = String(process.env.ASSISTANT_BASE_URL || "http://127.0.0.1:3000").replace(/\/$/, "");
 const backendTimeoutMs = Math.max(250, Number(process.env.BACKEND_TIMEOUT_MS || 5000));
 const token = process.env.ESP32_API_TOKEN || "";
+const plantId = process.env.PLANT_ID || "plant-a";
 const deviceId = process.env.DEVICE_ID || "panel-4848s040-3c-emulator";
 const evidence = [];
 
@@ -77,6 +78,7 @@ async function bridge(request, response, url) {
   if (request.method === "POST" && url.pathname === "/bridge/commands") {
     const input = await readBody(request);
     const result = await callBackend("POST", "/api/device/v1/commands", {
+      plant_id: plantId,
       device_id: deviceId,
       request_id: `${deviceId}-${randomUUID()}`,
       text: String(input.text || "Cambia la tarea J10 a mensual")
@@ -86,7 +88,10 @@ async function bridge(request, response, url) {
 
   const statusMatch = url.pathname.match(/^\/bridge\/commands\/([A-Za-z0-9-]+)$/);
   if (request.method === "GET" && statusMatch) {
-    const result = await callBackend("GET", `/api/device/v1/commands/${statusMatch[1]}`);
+    const result = await callBackend(
+      "GET",
+      `/api/device/v1/commands/${statusMatch[1]}?plant_id=${encodeURIComponent(plantId)}&device_id=${encodeURIComponent(deviceId)}`
+    );
     return sendJson(response, result.status, result.payload);
   }
 
@@ -95,6 +100,7 @@ async function bridge(request, response, url) {
       evidence_type: "emulated_integration",
       target: "ESP32-S3-4848S040 UI 480x480",
       backend,
+      plant_id: plantId,
       device_id: deviceId,
       generated_at: new Date().toISOString(),
       events: evidence
@@ -163,5 +169,6 @@ server.listen(port, host, () => {
   for (const url of accessUrls(port)) console.log(`Acceso directo Windows/red: ${url}`);
   console.log(`Si Chrome no genera GET /: VS Code > Ports > Forward a Port > ${port}.`);
   console.log(`Backend Asistente 3C: ${backend}`);
+  console.log(`Planta del dispositivo: ${plantId}`);
   if (!token) console.warn("ESP32_API_TOKEN no configurado: POST/GET de comandos sera rechazado.");
 });
