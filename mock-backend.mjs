@@ -190,10 +190,6 @@ createServer(async (request, response) => {
     return send(response, 200, { command: publicCommand(command) });
   }
 
-  if (request.method === "PATCH" && match && url.pathname.endsWith("/result")) {
-    return send(response, 404, { error: "Ruta no encontrada." });
-  }
-
   const resultMatch = url.pathname.match(/^\/api\/device\/v1\/commands\/([A-Za-z0-9-]+)\/result$/);
   if (request.method === "PATCH" && resultMatch) {
     const command = commands.get(resultMatch[1]);
