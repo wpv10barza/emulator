@@ -14,7 +14,19 @@ export function normalizeStatus(payload) {
 }
 
 export function normalizeResult(payload) {
-  return payload?.command?.result ?? payload?.result ?? "";
+  const result = payload?.command?.result ?? payload?.result ?? "";
+  if (typeof result === "string") return result;
+  if (result && typeof result === "object") {
+    if (result.verified) {
+      return `Fila ${result.row} verificada: ${result.before.frequency} ${result.before.unit} -> ${result.after.frequency} ${result.after.unit}`;
+    }
+    return result.message ?? "";
+  }
+  return "";
+}
+
+export function normalizePreview(payload) {
+  return payload?.command?.preview ?? payload?.preview ?? null;
 }
 
 export function stateFromHealth(payload) {
