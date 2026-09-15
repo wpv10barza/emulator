@@ -4,12 +4,15 @@ import {
   stateDefinition,
   stateFromHealth
 } from "/panel-model.mjs";
+import { CommandBuffer, KEYBOARD_ROWS } from "/command-input.mjs";
 
 const screen = document.querySelector("#screen");
 const stateElement = document.querySelector("#state");
 const detailElement = document.querySelector("#detail");
 const logElement = document.querySelector("#log");
-const commandElement = document.querySelector("#command");
+const commandInputElement = document.querySelector("#command-input");
+const keyboardElement = document.querySelector("#keyboard");
+const commandBuffer = new CommandBuffer(commandInputElement.value);
 let pollTimer;
 
 function log(message, payload) {
@@ -24,6 +27,35 @@ function render(state, detail = "") {
   screen.style.setProperty("--screen-bg", definition.background);
   stateElement.textContent = definition.label;
   detailElement.textContent = detail || definition.label;
+}
+
+function renderCommandBuffer(focus = true) {
+  commandInputElement.value = commandBuffer.value;
+  try {
+    commandInputElement.setSelectionRange(commandBuffer.cursor, commandBuffer.cursor);
+  } catch {
+    // Selection is not available until the input is focused in some browsers.
+  }
+  if (focus) commandInputElement.focus({ preventScroll: true });
+}
+
+function setInputMode(enabled) {
+  screen.classList.toggle("input-mode", enabled);
+  keyboardElement.hidden = !enabled;
+  commandInputElement.setAttribute("aria-hidden", enabled ? "false" : "true");
+  if (enabled) renderCommandBuffer();
+}
+
+function openCommandEditor() {
+  clearTimeout(pollTimer);
+  commandBuffer.set(commandInputElement.value || "Cambia la tarea J10 a mensual");
+  setInputMode(true);
+  log("Editor táctil abierto", { maxLength: commandBuffer.maxLength });
+}
+
+function closeCommandEditor() {
+  setInputMode(false);
+  commandInputElement.blur();
 }
 
 async function jsonFetch(path, options) {
@@ -62,31 +94,89 @@ async function poll(commandId) {
 }
 
 async function sendCommand() {
+  const text = commandBuffer.value.trim();
+  if (!text) {
+    render("error", "Comando vacío");
+    log("Envío bloqueado: comando vacío");
+    return;
+  }
+  closeCommandEditor();
   render("busy", "Enviando vista previa");
   try {
     const payload = await jsonFetch("/bridge/commands", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ text: commandElement.value })
+      body: JSON.stringify({ text })
     });
     render("pending_confirmation", "Confirme en Asistente 3C");
-    log("POST /api/device/v1/commands", payload);
+    log("POST /api/device/v1/commands", { text, response: payload });
     const commandId = payload.command_id || payload.command?.id;
     if (commandId) poll(commandId);
   } catch (error) {
     render("error", error.message);
-    log("Fallo de envio", error.payload);
+    log("Fallo de envío", error.payload);
   }
 }
 
+function handleVirtualKey(key) {
+  switch (key) {
+    case "BK": commandBuffer.backspace(); break;
+    case "CLR": commandBuffer.clear(); break;
+    case "<-": commandBuffer.left(); break;
+    case "->": commandBuffer.right(); break;
+    case "HOME": commandBuffer.home(); break;
+    case "END": commandBuffer.end(); break;
+    case "SPC": commandBuffer.insert(" "); break;
+    default: commandBuffer.insert(key); break;
+  }
+  renderCommandBuffer();
+}
+
+commandInputElement.addEventListener("input", () => {
+  commandBuffer.set(commandInputElement.value);
+  const position = commandInputElement.selectionStart ?? commandBuffer.value.length;
+  commandBuffer.setCursor(position);
+});
+commandInputElement.addEventListener("selectionchange", () => {
+  const position = commandInputElement.selectionStart;
+  if (typeof position === "number") commandBuffer.setCursor(position);
+});
+
+for (const row of KEYBOARD_ROWS) {
+  for (const key of row) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "key";
+    button.dataset.key = key;
+    button.textContent = key;
+    button.addEventListener("click", () => handleVirtualKey(key));
+    keyboardElement.querySelector(".keyboard-letters").appendChild(button);
+  }
+}
+
+for (const [label, action] of [["SPC", "SPC"], ["BK", "BK"], ["CLR", "CLR"], ["<-", "<-"], ["->", "->"]]) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = `key key-special key-${action.replace(/[^a-z]/gi, "")}`;
+  button.dataset.key = action;
+  button.textContent = label;
+  button.addEventListener("click", () => handleVirtualKey(action));
+  keyboardElement.querySelector(".keyboard-special").appendChild(button);
+}
+
 document.querySelector("#health").addEventListener("click", health);
-document.querySelector("#send").addEventListener("click", sendCommand);
+document.querySelector("#send").addEventListener("click", () => {
+  if (!screen.classList.contains("input-mode")) openCommandEditor();
+  else sendCommand();
+});
 document.querySelectorAll("[data-demo]").forEach(button => {
   button.addEventListener("click", () => {
     clearTimeout(pollTimer);
+    closeCommandEditor();
     render(button.dataset.demo, "Captura controlada del emulador");
     log(`Modo de captura: ${button.dataset.demo}`);
   });
 });
 
+setInputMode(false);
 render("booting", "Emulador preparado");

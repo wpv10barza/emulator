@@ -80,12 +80,16 @@ jobs:
           ref: 4d323083de83c0618d848ff514607d50bacd8012
           path: asistente-3c
 
-      - name: Checkout pinned ESP32 panel firmware
+      - name: Checkout input-subsystem ESP32 panel firmware
         uses: actions/checkout@v7
         with:
           repository: wpv10barza/esp32-3C
-          ref: 2ebac82166ab8044e0ea8ab1ef0e3bdfe60ad943
+          ref: a85abc1d3169b63d615334e0da4cf7d9303847a4
           path: esp32-3C
+
+      - name: Validate physical 480x480 input contract
+        working-directory: emulator
+        run: node scripts/validate-physical-input.mjs
 
       - name: Set up Node.js 24
         uses: actions/setup-node@v5
