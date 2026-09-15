@@ -88,20 +88,8 @@ jobs:
           path: esp32-3C
 
       - name: Validate physical 480x480 input contract
-        working-directory: esp32-3C
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -f src/command_input.h
-          test -f src/command_input.cpp
-          grep -Fq '#include "command_input.h"' src/panel_4848s040_main.cpp
-          grep -Fq 'commandInput.open' src/panel_4848s040_main.cpp
-          grep -Fq 'send3CCommand(command)' src/panel_4848s040_main.cpp
-          grep -Fq 'kFieldY = 207' src/command_input.h
-          grep -Fq 'kKeyboardY = 258' src/command_input.h
-          grep -Fq 'kKeyW = 44' src/command_input.h
-          grep -Fq 'kKeyH = 20' src/command_input.h
-          printf '%s\n' 'Physical 480x480 input contract: OK'
+        working-directory: emulator
+        run: node scripts/validate-physical-input.mjs
 
       - name: Set up Node.js 24
         uses: actions/setup-node@v5
