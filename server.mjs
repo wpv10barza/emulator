@@ -74,6 +74,11 @@ async function bridge(request, response, url) {
     return sendJson(response, result.status, result.payload);
   }
 
+  if (request.method === "GET" && url.pathname === "/bridge/metrics") {
+    const result = await callBackend("GET", "/api/device/v1/metrics");
+    return sendJson(response, result.status, result.payload);
+  }
+
   if (request.method === "POST" && url.pathname === "/bridge/commands") {
     const input = await readBody(request);
     const result = await callBackend("POST", "/api/device/v1/commands", {
@@ -104,7 +109,7 @@ async function bridge(request, response, url) {
 }
 
 async function serveStatic(request, response, pathname) {
-  if (!['GET', 'HEAD'].includes(request.method || 'GET')) {
+  if (!["GET", "HEAD"].includes(request.method || "GET")) {
     return sendJson(response, 405, { error: "method not allowed" });
   }
   const requested = pathname === "/" ? "index.html" : pathname.slice(1);
@@ -113,7 +118,7 @@ async function serveStatic(request, response, pathname) {
   try {
     const data = await readFile(path);
     const contentType = contentTypes[extname(path)] || "application/octet-stream";
-    if (request.method === 'HEAD') {
+    if (request.method === "HEAD") {
       response.writeHead(200, {
         "content-type": contentType,
         "content-length": String(data.byteLength),

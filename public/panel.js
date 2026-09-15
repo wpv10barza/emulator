@@ -11,6 +11,7 @@ const detailElement = document.querySelector("#detail");
 const logElement = document.querySelector("#log");
 const commandElement = document.querySelector("#command");
 let pollTimer;
+let cellLock = { active: false, ttl_s: 0, scope: "" };
 
 function log(message, payload) {
   const suffix = payload ? `\n${JSON.stringify(payload, null, 2)}` : "";
@@ -23,7 +24,19 @@ function render(state, detail = "") {
   screen.style.background = definition.background;
   screen.style.setProperty("--screen-bg", definition.background);
   stateElement.textContent = definition.label;
-  detailElement.textContent = detail || definition.label;
+  const lockDetail = cellLock.active
+    ? `Bloqueo temporal activo (${Math.ceil(cellLock.ttl_s)} s)`
+    : "Bloqueo temporal inactivo";
+  detailElement.textContent = detail ? `${detail} · ${lockDetail}` : `${definition.label} · ${lockDetail}`;
+}
+
+function setCellLock(payload) {
+  const next = payload?.cell_lock || {};
+  cellLock = {
+    active: next.active === true,
+    ttl_s: Number(next.ttl_s || 0),
+    scope: String(next.scope || "")
+  };
 }
 
 async function jsonFetch(path, options) {
@@ -37,6 +50,7 @@ async function health() {
   render("busy", "Verificando endpoint WSL");
   try {
     const payload = await jsonFetch("/bridge/health");
+    setCellLock(payload);
     const state = stateFromHealth(payload);
     render(state, state === "ready" ? "Endpoint 3C conectado" : "Backend no disponible");
     log("GET /api/device/v1/health", payload);
@@ -50,6 +64,7 @@ async function poll(commandId) {
   clearTimeout(pollTimer);
   try {
     const payload = await jsonFetch(`/bridge/commands/${commandId}`);
+    setCellLock(payload.command);
     const status = normalizeStatus(payload);
     const result = normalizeResult(payload);
     render(status, result || (status === "pending_confirmation" ? "Confirme en Asistente 3C" : status));
@@ -69,6 +84,7 @@ async function sendCommand() {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ text: commandElement.value })
     });
+    setCellLock(payload);
     render("pending_confirmation", "Confirme en Asistente 3C");
     log("POST /api/device/v1/commands", payload);
     const commandId = payload.command_id || payload.command?.id;
