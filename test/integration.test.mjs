@@ -82,11 +82,56 @@ test("ejecuta el ciclo health -> pending -> applied en Ubuntu", async () => {
 
   const first = await (await fetch(`${base}/bridge/commands/${created.command_id}`)).json();
   assert.equal(first.command.status, "pending_confirmation");
+  assert.equal(first.command.preview.before.frequency, 3);
+  assert.equal(first.command.preview.after.frequency, 2);
+
+  // El estado NO debe cambiar solo por consultarlo repetidas veces.
+  const stillPending = await (await fetch(`${base}/bridge/commands/${created.command_id}`)).json();
+  assert.equal(stillPending.command.status, "pending_confirmation");
+
+  const confirmation = await (await fetch(`${base}/bridge/commands/${created.command_id}/confirm`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({})
+  })).json();
+  assert.equal(confirmation.command.status, "applied");
+  assert.equal(confirmation.command.result.verified, true);
+
   const second = await (await fetch(`${base}/bridge/commands/${created.command_id}`)).json();
   assert.equal(second.command.status, "applied");
 
+  // Confirmar dos veces no debe re-aplicar: el backend responde 409.
+  const repeatConfirm = await fetch(`${base}/bridge/commands/${created.command_id}/confirm`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({})
+  });
+  assert.equal(repeatConfirm.status, 409);
+
   const evidence = await (await fetch(`${base}/evidence.json`)).json();
   assert.equal(evidence.evidence_type, "emulated_integration");
-  assert.equal(evidence.events.length, 4);
-  assert.deepEqual(evidence.events.map(event => event.status), [200, 202, 200, 200]);
+  assert.equal(evidence.events.length, 7);
+  assert.deepEqual(evidence.events.map(event => event.status), [200, 202, 200, 200, 200, 200, 409]);
+});
+
+test("rechaza un comando pendiente sin aplicar cambios", async () => {
+  const base = `http://127.0.0.1:${emulatorPort}`;
+  const createdResponse = await fetch(`${base}/bridge/commands`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ text: "Cambia la tarea J10 a mensual" })
+  });
+  const created = await createdResponse.json();
+  assert.equal(created.status, "pending_confirmation");
+
+  const rejection = await (await fetch(`${base}/bridge/commands/${created.command_id}/reject`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({})
+  })).json();
+  assert.equal(rejection.command.status, "rejected");
+  assert.equal(rejection.command.result.message, "Cancelacion simulada; no se escribio nada.");
+
+  const status = await (await fetch(`${base}/bridge/commands/${created.command_id}`)).json();
+  assert.equal(status.command.status, "rejected");
 });
