@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  normalizePreview,
   normalizeResult,
   normalizeStatus,
   stateDefinition,
@@ -11,6 +12,20 @@ test("interpreta la respuesta anidada del backend vigente", () => {
   const payload = { command: { status: "applied", result: "Confirmado en WSL" } };
   assert.equal(normalizeStatus(payload), "applied");
   assert.equal(normalizeResult(payload), "Confirmado en WSL");
+});
+
+test("extrae la vista previa del comando", () => {
+  const preview = { row: 5, before: { frequency: 3, unit: "Mes" }, after: { frequency: 2, unit: "Mes" } };
+  assert.deepEqual(normalizePreview({ command: { preview } }), preview);
+  assert.equal(normalizePreview({ command: {} }), null);
+});
+
+test("interpreta el resultado objeto de una confirmacion", () => {
+  const applied = { command: { status: "applied", result: { row: 5, before: { frequency: 3, unit: "Mes" }, after: { frequency: 2, unit: "Mes" }, verified: true } } };
+  assert.equal(normalizeResult(applied), "Fila 5 verificada: 3 Mes -> 2 Mes");
+
+  const rejected = { command: { status: "rejected", result: { message: "Cancelacion simulada; no se escribio nada." } } };
+  assert.equal(normalizeResult(rejected), "Cancelacion simulada; no se escribio nada.");
 });
 
 test("conserva compatibilidad con una respuesta plana", () => {
