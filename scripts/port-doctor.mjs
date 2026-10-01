@@ -4,10 +4,18 @@ import { promisify } from "node:util";
 import { accessUrls, isDevContainerRuntime, isWslRuntime } from "../lib/network.mjs";
 
 const execFileAsync = promisify(execFile);
+const strict = process.argv.includes("--strict");
 const portArgument = process.argv.find(value => value.startsWith("--port="));
 const port = Number(portArgument?.slice(7) || process.env.EMULATOR_PORT || 8080);
 const localHealthUrl = `http://127.0.0.1:${port}/healthz`;
 const powershell = "/mnt/c/Windows/System32/WindowsPowerShell/v1.0/powershell.exe";
+
+if (!Number.isInteger(port) || port < 1 || port > 65535) {
+  console.error(`Puerto no valido: ${port}`);
+  process.exitCode = 1;
+} else {
+  await runDoctor();
+}
 
 async function probe(url) {
   const started = performance.now();
@@ -73,48 +81,62 @@ async function windowsProbe(url) {
   }
 }
 
-const version = await procVersion();
-const wsl = isWslRuntime(version);
-const devContainer = isDevContainerRuntime();
-const internal = await probe(localHealthUrl);
+async function runDoctor() {
+  const version = await procVersion();
+  const wsl = isWslRuntime(version);
+  const devContainer = isDevContainerRuntime();
+  const internal = await probe(localHealthUrl);
 
-console.log("Diagnostico de acceso al emulador ESP32-S3-4848S040");
-console.log(`- Entorno: ${wsl ? "WSL" : "Linux"}${devContainer ? " + Dev Container" : ""}`);
-console.log(`- Servicio interno: ${internal.ok ? "OK" : "FALLO"} (${internal.status || "sin respuesta"}, ${internal.elapsedMs} ms)`);
+  console.log("Diagnostico de acceso al emulador ESP32-S3-4848S040");
+  console.log(`- Modo: ${strict ? "STRICT" : "INTERACTIVO"}`);
+  console.log(`- Entorno: ${wsl ? "WSL" : "Linux"}${devContainer ? " + Dev Container" : ""}`);
+  console.log(`- Servicio interno: ${internal.ok ? "OK" : "FALLO"} (${internal.status || "sin respuesta"}, ${internal.elapsedMs} ms)`);
 
-if (!internal.ok) {
-  console.error(`- No responde correctamente ${localHealthUrl}: ${internal.reason}`);
-  console.error("- Inicie primero el emulador actualizado con: npm start");
-  process.exitCode = 1;
-} else {
+  if (!internal.ok) {
+    console.error(`- No responde correctamente ${localHealthUrl}: ${internal.reason}`);
+    console.error("- Inicie primero el emulador actualizado con: npm start");
+    process.exitCode = 1;
+    return;
+  }
+
   const directUrls = accessUrls(port);
   console.log(`- URL dentro de WSL/Linux: http://127.0.0.1:${port}`);
   for (const url of directUrls) console.log(`- Candidato directo Windows/red: ${url}`);
 
-  if (wsl || devContainer) {
-    const windowsLoopback = await windowsProbe(localHealthUrl);
-    if (windowsLoopback.ok) {
-      console.log(`- Acceso Windows verificado: http://127.0.0.1:${port}`);
-    } else {
-      console.warn("- Acceso Windows por localhost: NO DISPONIBLE");
-      if (windowsLoopback.reason) console.warn(`  ${windowsLoopback.reason.split(/\r?\n/)[0]}`);
+  if (!(wsl || devContainer)) return;
 
-      const reachable = [];
-      for (const url of directUrls) {
-        const result = await windowsProbe(`${url}/healthz`);
-        if (result.ok) reachable.push(url);
-      }
+  const windowsLoopback = await windowsProbe(localHealthUrl);
+  if (windowsLoopback.ok) {
+    console.log(`- Acceso Windows verificado: http://127.0.0.1:${port}`);
+    return;
+  }
 
-      if (reachable.length) {
-        console.log(`- Abra desde Windows: ${reachable[0]}`);
-      } else if (devContainer) {
-        console.warn("- Aplique la configuracion versionada: Dev Containers: Rebuild and Reopen in Container.");
-        console.warn("- Luego abra el puerto 8080 desde la pestana Ports.");
-      } else if (wsl) {
-        console.warn("- Ejecute el puente de respaldo: npm run wsl:forward");
-        console.warn("- Tras aceptar UAC, abra http://127.0.0.1:18080");
-      }
-      process.exitCode = 2;
-    }
+  console.warn("- Acceso Windows por localhost: NO DISPONIBLE");
+  if (windowsLoopback.reason) console.warn(`  ${windowsLoopback.reason.split(/\r?\n/)[0]}`);
+
+  const reachable = [];
+  for (const url of directUrls) {
+    const result = await windowsProbe(`${url}/healthz`);
+    if (result.ok) reachable.push(url);
+  }
+
+  if (reachable.length) {
+    console.log(`- Abra desde Windows: ${reachable[0]}`);
+    return;
+  }
+
+  if (devContainer) {
+    console.warn("- Aplique la configuracion versionada: Dev Containers: Rebuild and Reopen in Container.");
+    console.warn("- Luego abra el puerto 8080 desde la pestana Ports.");
+  } else if (wsl) {
+    console.warn("- Ejecute el puente de respaldo: npm run wsl:forward");
+    console.warn("- Tras aceptar UAC, abra http://127.0.0.1:18080");
+  }
+
+  if (strict) {
+    console.error("- STRICT: el acceso externo no fue verificado; salida 2.");
+    process.exitCode = 2;
+  } else {
+    console.warn("- INTERACTIVO: el emulador interno esta sano; esta advertencia no cierra la terminal (salida 0).");
   }
 }

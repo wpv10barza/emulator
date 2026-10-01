@@ -128,6 +128,18 @@ async function serveStatic(request, response, pathname) {
   }
 }
 
+async function existingEmulatorHealthy() {
+  try {
+    const response = await fetch(`http://127.0.0.1:${port}/healthz`, {
+      signal: AbortSignal.timeout(1500)
+    });
+    const payload = await response.json();
+    return response.ok && payload?.ok === true && payload?.service === "esp32-4848s040-emulator";
+  } catch {
+    return false;
+  }
+}
+
 const server = createServer(async (request, response) => {
   const started = performance.now();
   try {
@@ -153,15 +165,38 @@ const server = createServer(async (request, response) => {
 server.requestTimeout = Math.max(backendTimeoutMs + 2000, 7000);
 server.headersTimeout = 5000;
 server.keepAliveTimeout = 3000;
-server.on("error", error => {
-  console.error(`No se pudo iniciar el emulador en ${host}:${port}: ${error.message}`);
-  process.exitCode = 1;
-});
-server.listen(port, host, () => {
+
+async function startServer() {
+  try {
+    await new Promise((resolve, reject) => {
+      server.once("error", reject);
+      server.listen(port, host, resolve);
+    });
+  } catch (error) {
+    if (error?.code === "EADDRINUSE" && await existingEmulatorHealthy()) {
+      console.warn(`Emulador ya esta activo en http://127.0.0.1:${port}; se reutiliza la instancia existente.`);
+      return false;
+    }
+    throw error;
+  }
+
+  server.on("error", error => {
+    console.error(`Error del emulador en ${host}:${port}: ${error.message}`);
+    process.exitCode = 1;
+  });
+
   console.log(`Emulador ESP32-S3-4848S040: http://localhost:${port}`);
   console.log(`Escuchando para WSL/contenedor en ${host}:${port}`);
   for (const url of accessUrls(port)) console.log(`Acceso directo Windows/red: ${url}`);
   console.log(`Si Chrome no genera GET /: VS Code > Ports > Forward a Port > ${port}.`);
   console.log(`Backend Asistente 3C: ${backend}`);
   if (!token) console.warn("ESP32_API_TOKEN no configurado: POST/GET de comandos sera rechazado.");
-});
+  return true;
+}
+
+try {
+  await startServer();
+} catch (error) {
+  console.error(`No se pudo iniciar el emulador en ${host}:${port}: ${error.message}`);
+  process.exitCode = 1;
+}
