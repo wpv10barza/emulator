@@ -48,6 +48,47 @@ jobs:
           fi
           grep -q "SKIP WSL FORWARD" <<<"$output"
 
+  devcontainer-image:
+    name: Dev Container image regression
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    container:
+      image: mcr.microsoft.com/devcontainers/typescript-node:1-24-bookworm
+    env:
+      DEVCONTAINER: "1"
+      REMOTE_CONTAINERS: "1"
+    steps:
+      - name: Checkout emulator repository
+        uses: actions/checkout@v7
+
+      - name: Show container runtime
+        shell: bash
+        run: |
+          node --version
+          npm --version
+          cat /etc/os-release
+
+      - name: Install exact dependencies
+        run: npm ci
+
+      - name: Run repository tests inside Dev Container image
+        run: npm test
+
+      - name: Audit shell startup behavior
+        shell: bash
+        run: npm run env:audit
+
+      - name: Verify WSL bridge is nonfatal in container
+        shell: bash
+        run: |
+          set +e
+          output="$(npm run wsl:forward 2>&1)"
+          rc=$?
+          set -e
+          printf '%s\n' "$output"
+          test "$rc" -eq 0
+          grep -q "SKIP WSL FORWARD" <<<"$output"
+
   emulator-evidence:
     name: Emulator, contract and figure evidence
     runs-on: ubuntu-24.04
