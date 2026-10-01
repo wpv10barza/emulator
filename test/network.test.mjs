@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { spawnSync } from "node:child_process";
 import {
   accessUrls,
   externalIpv4Addresses,
@@ -76,6 +77,23 @@ test("define Dev Container reproducible con los puertos 8080 y 3000", async () =
   assert.equal(configuration.portsAttributes["8080"].requireLocalPort, false);
   assert.equal(configuration.containerEnv.EMULATOR_HOST, "0.0.0.0");
   assert.equal(configuration.postCreateCommand, "npm ci");
+});
+
+test("el auditor de shell nunca colapsa la terminal y esta expuesto por npm", async () => {
+  const scriptPath = new URL("../scripts/wsl-shell-audit.sh", import.meta.url);
+  const result = spawnSync("bash", [scriptPath.pathname], {
+    cwd: new URL("../", import.meta.url),
+    encoding: "utf8",
+    env: { ...process.env, HOME: process.env.HOME || "/tmp" }
+  });
+  assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+  assert.match(`${result.stdout}\n${result.stderr}`, /WSL\/BASH COLLAPSE AUDIT/);
+
+  const packageSource = await readFile(new URL("../package.json", import.meta.url), "utf8");
+  const packageJson = JSON.parse(packageSource);
+  assert.equal(packageJson.scripts["env:audit"], "bash scripts/wsl-shell-audit.sh");
+  assert.equal(packageJson.scripts["env:fix"], "bash scripts/wsl-shell-audit.sh --fix-user-shell");
+  assert.equal(packageJson.scripts["doctor:strict"], "node scripts/port-doctor.mjs --strict");
 });
 
 test("el puente de respaldo queda limitado al loopback y no falla cuando no aplica", async () => {
