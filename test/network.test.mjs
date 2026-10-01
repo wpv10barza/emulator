@@ -6,7 +6,9 @@ import {
   externalIpv4Addresses,
   isDevContainerRuntime,
   isWslRuntime,
-  selectWslIpv4
+  selectReachableWslIpv4,
+  selectWslIpv4,
+  wslIpv4Candidates
 } from "../lib/network.mjs";
 
 const interfaces = {
@@ -27,6 +29,28 @@ test("genera URLs IPv4 accesibles fuera del loopback", () => {
 test("elige una direccion privada valida para el puente WSL", () => {
   assert.equal(selectWslIpv4(["127.0.0.1", "172.25.112.44", "8.8.8.8"]), "172.25.112.44");
   assert.equal(selectWslIpv4(["8.8.8.8"]), null);
+  assert.deepEqual(
+    wslIpv4Candidates(["10.8.0.2", "172.25.112.44", "8.8.8.8", "10.8.0.2"]),
+    ["10.8.0.2", "172.25.112.44"]
+  );
+});
+
+test("prueba todas las IPv4 WSL y evita elegir primero una VPN inaccesible", async () => {
+  const attempts = [];
+  const selected = await selectReachableWslIpv4(
+    ["10.8.0.2", "172.25.112.44", "172.17.0.1"],
+    async address => {
+      attempts.push(address);
+      return address === "172.25.112.44";
+    }
+  );
+
+  assert.equal(selected, "172.25.112.44");
+  assert.deepEqual(attempts, ["10.8.0.2", "172.25.112.44"]);
+
+  const none = await selectReachableWslIpv4(["10.8.0.2"], async () => false);
+  assert.equal(none, null);
+  await assert.rejects(() => selectReachableWslIpv4(["10.8.0.2"], null), /probe debe ser una funcion/);
 });
 
 test("detecta WSL y Dev Container sin depender del equipo de CI", () => {
@@ -54,7 +78,7 @@ test("define Dev Container reproducible con los puertos 8080 y 3000", async () =
   assert.equal(configuration.postCreateCommand, "npm ci");
 });
 
-test("el puente de respaldo queda limitado al loopback de Windows", async () => {
+test("el puente de respaldo queda limitado al loopback y no falla cuando no aplica", async () => {
   const source = await readFile(new URL("../scripts/windows-portproxy.ps1", import.meta.url), "utf8");
   assert.match(source, /listenaddress=127\.0\.0\.1/);
   assert.doesNotMatch(source, /listenaddress=0\.0\.0\.0/);
@@ -67,7 +91,9 @@ test("el puente de respaldo queda limitado al loopback de Windows", async () => 
   assert.doesNotMatch(launcherSource, /\$target,\s*;/);
   assert.match(launcherSource, /\$target,'-ConnectAddress'/);
   assert.ok(launcherSource.includes('await verifyEmulator("127.0.0.1", connectPort)'));
-  assert.ok(launcherSource.includes("await verifyEmulator(connectAddress, connectPort)"));
+  assert.ok(launcherSource.includes("selectReachableWslIpv4"));
+  assert.ok(launcherSource.includes("SKIP WSL FORWARD"));
+  assert.ok(launcherSource.includes("return;"));
   assert.ok(launcherSource.includes("'-LogPath',$log"));
 
   const packageSource = await readFile(new URL("../package.json", import.meta.url), "utf8");
