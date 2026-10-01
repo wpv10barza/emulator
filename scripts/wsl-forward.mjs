@@ -6,7 +6,8 @@ import {
   externalIpv4Addresses,
   isDevContainerRuntime,
   isWslRuntime,
-  selectWslIpv4
+  selectReachableWslIpv4,
+  wslIpv4Candidates
 } from "../lib/network.mjs";
 
 const execFileAsync = promisify(execFile);
@@ -34,71 +35,105 @@ async function procVersion() {
   }
 }
 
-async function verifyEmulator(host, port) {
+async function emulatorHealthy(host, port) {
   const url = `http://${host}:${port}/healthz`;
   try {
     const response = await fetch(url, { signal: AbortSignal.timeout(3000) });
     const body = await response.json();
-    if (!response.ok || body.ok !== true || body.service !== "esp32-4848s040-emulator") {
-      throw new Error("la respuesta no pertenece al emulador");
-    }
-  } catch (error) {
+    return response.ok && body.ok === true && body.service === "esp32-4848s040-emulator";
+  } catch {
+    return false;
+  }
+}
+
+async function verifyEmulator(host, port) {
+  const url = `http://${host}:${port}/healthz`;
+  if (!(await emulatorHealthy(host, port))) {
     throw new Error(
-      `El emulador no responde en ${url}. Ejecute 'npm start' en otra terminal y confirme 'curl http://127.0.0.1:${port}/healthz'. Detalle: ${error.message}`
+      `El emulador no responde correctamente en ${url}. Ejecute 'npm start' y confirme 'curl http://127.0.0.1:${port}/healthz'.`
     );
   }
 }
 
-const listenPort = numericArgument("listen-port", 18080);
-const connectPort = numericArgument("connect-port", process.env.EMULATOR_PORT || 8080);
-const version = await procVersion();
+async function main() {
+  const listenPort = numericArgument("listen-port", 18080);
+  const connectPort = numericArgument("connect-port", process.env.EMULATOR_PORT || 8080);
+  const version = await procVersion();
 
-if (!isWslRuntime(version)) {
-  console.error("Este comando solo aplica a WSL. En Dev Container use los forwardPorts incluidos en .devcontainer/devcontainer.json.");
-  process.exit(1);
+  // No son errores de ejecución: simplemente este puente no aplica en esos entornos.
+  // Salir con 0 evita que VS Code marque la terminal como fallida por una operación opcional.
+  if (!isWslRuntime(version)) {
+    console.warn("SKIP WSL FORWARD: esta terminal no es WSL. Use el puerto local/forward del entorno actual.");
+    return;
+  }
+
+  if (isDevContainerRuntime()) {
+    console.warn("SKIP WSL FORWARD: Dev Container detectado. Use los forwardPorts de .devcontainer/devcontainer.json.");
+    return;
+  }
+
+  try {
+    await access(powershell);
+  } catch {
+    throw new Error(`PowerShell de Windows no esta disponible en ${powershell}. Confirme que WSL monta /mnt/c.`);
+  }
+
+  // Primero comprobamos el servicio local. Si 8080 pertenece a otro proceso,
+  // no se intenta elevar PowerShell ni crear un portproxy incorrecto.
+  await verifyEmulator("127.0.0.1", connectPort);
+
+  const addresses = externalIpv4Addresses();
+  const candidates = wslIpv4Candidates(addresses);
+  const connectAddress = await selectReachableWslIpv4(
+    addresses,
+    address => emulatorHealthy(address, connectPort)
+  );
+
+  if (!connectAddress) {
+    const diagnostic = candidates.length ? candidates.join(", ") : "ninguna";
+    throw new Error(
+      `Ninguna IPv4 privada de WSL alcanza el emulador en el puerto ${connectPort}. Candidatas probadas: ${diagnostic}.`
+    );
+  }
+
+  const translated = await execFileAsync("wslpath", ["-w", scriptPath]);
+  const windowsSource = translated.stdout.trim();
+  const command = [
+    `$source = ${psLiteral(windowsSource)}`,
+    "$target = Join-Path $env:TEMP 'emulator-wsl-portproxy.ps1'",
+    "$log = Join-Path $env:TEMP 'emulator-wsl-portproxy.log'",
+    "Remove-Item -LiteralPath $log -Force -ErrorAction SilentlyContinue",
+    "Copy-Item -LiteralPath $source -Destination $target -Force",
+    `$arguments = @('-NoProfile','-ExecutionPolicy','Bypass','-File',$target,'-ConnectAddress',${psLiteral(connectAddress)},'-ListenPort','${listenPort}','-ConnectPort','${connectPort}','-LogPath',$log)`,
+    "$process = Start-Process -FilePath powershell.exe -Verb RunAs -ArgumentList $arguments -Wait -PassThru",
+    "if (Test-Path -LiteralPath $log) { Get-Content -Raw -LiteralPath $log | Write-Output }",
+    "exit $process.ExitCode"
+  ].join("; ");
+
+  console.log(`Creando puente seguro 127.0.0.1:${listenPort} -> ${connectAddress}:${connectPort}`);
+  console.log("Windows mostrara una confirmacion de administrador para configurar netsh portproxy.");
+
+  try {
+    const result = await execFileAsync(powershell, ["-NoProfile", "-NonInteractive", "-Command", command], {
+      timeout: 120000,
+      windowsHide: false,
+      encoding: "utf8"
+    });
+    const diagnostic = result.stdout.trim();
+    if (diagnostic) console.log(diagnostic);
+  } catch (error) {
+    const diagnostic = String(error.stdout || error.stderr || "").trim();
+    throw new Error(
+      diagnostic || "El proceso elevado fallo sin diagnostico. Verifique que acepto la solicitud de administrador."
+    );
+  }
+
+  console.log(`Puente instalado. Abra http://127.0.0.1:${listenPort}`);
 }
 
-if (isDevContainerRuntime()) {
-  console.error("Esta terminal pertenece a un Dev Container. Ejecute 'Dev Containers: Rebuild and Reopen in Container' para aplicar forwardPorts.");
-  process.exit(1);
-}
-
-await access(powershell);
-const connectAddress = selectWslIpv4(externalIpv4Addresses());
-if (!connectAddress) {
-  throw new Error("No se encontro una direccion IPv4 privada de WSL para crear el puente.");
-}
-
-await verifyEmulator("127.0.0.1", connectPort);
-await verifyEmulator(connectAddress, connectPort);
-
-const translated = await execFileAsync("wslpath", ["-w", scriptPath]);
-const windowsSource = translated.stdout.trim();
-const command = [
-  `$source = ${psLiteral(windowsSource)}`,
-  "$target = Join-Path $env:TEMP 'emulator-wsl-portproxy.ps1'",
-  "$log = Join-Path $env:TEMP 'emulator-wsl-portproxy.log'",
-  "Remove-Item -LiteralPath $log -Force -ErrorAction SilentlyContinue",
-  "Copy-Item -LiteralPath $source -Destination $target -Force",
-  `$arguments = @('-NoProfile','-ExecutionPolicy','Bypass','-File',$target,'-ConnectAddress',${psLiteral(connectAddress)},'-ListenPort','${listenPort}','-ConnectPort','${connectPort}','-LogPath',$log)`,
-  "$process = Start-Process -FilePath powershell.exe -Verb RunAs -ArgumentList $arguments -Wait -PassThru",
-  "if (Test-Path -LiteralPath $log) { Get-Content -Raw -LiteralPath $log | Write-Output }",
-  "exit $process.ExitCode"
-].join("; ");
-
-console.log(`Creando puente seguro 127.0.0.1:${listenPort} -> ${connectAddress}:${connectPort}`);
-console.log("Windows mostrara una confirmacion de administrador para configurar netsh portproxy.");
 try {
-  const result = await execFileAsync(powershell, ["-NoProfile", "-NonInteractive", "-Command", command], {
-    timeout: 120000,
-    windowsHide: false,
-    encoding: "utf8"
-  });
-  const diagnostic = result.stdout.trim();
-  if (diagnostic) console.log(diagnostic);
+  await main();
 } catch (error) {
-  const diagnostic = String(error.stdout || error.stderr || "").trim();
-  console.error(diagnostic || "El proceso elevado fallo sin devolver diagnostico. Verifique que acepto la solicitud de administrador.");
-  process.exit(1);
+  console.error(`ERROR WSL FORWARD: ${error.message || error}`);
+  process.exitCode = 1;
 }
-console.log(`Puente instalado. Abra http://127.0.0.1:${listenPort}`);

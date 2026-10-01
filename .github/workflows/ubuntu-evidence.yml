@@ -10,6 +10,44 @@ permissions:
   contents: read
 
 jobs:
+  compatibility:
+    name: Runtime regression (Node ${{ matrix.node-version }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [20, 24]
+    steps:
+      - name: Checkout emulator repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+
+      - name: Install exact dependencies
+        run: npm ci
+
+      - name: Run unit and integration tests
+        run: npm test
+
+      - name: Verify optional WSL bridge skips cleanly outside WSL
+        shell: bash
+        run: |
+          set +e
+          output="$(npm run wsl:forward 2>&1)"
+          rc=$?
+          set -e
+          printf '%s\n' "$output"
+          if [ "$rc" -ne 0 ]; then
+            echo "wsl:forward must return 0 when WSL forwarding does not apply; got $rc"
+            exit 1
+          fi
+          grep -q "SKIP WSL FORWARD" <<<"$output"
+
   emulator-evidence:
     name: Emulator, contract and figure evidence
     runs-on: ubuntu-24.04
