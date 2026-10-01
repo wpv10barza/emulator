@@ -53,7 +53,7 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     container:
-      image: mcr.microsoft.com/devcontainers/typescript-node:1-24-bookworm
+      image: mcr.microsoft.com/devcontainers/typescript-node:24-bookworm
     env:
       DEVCONTAINER: "1"
       REMOTE_CONTAINERS: "1"
