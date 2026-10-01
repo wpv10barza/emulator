@@ -6,6 +6,9 @@
     "start": "node server.mjs",
     "mock": "node mock-backend.mjs",
     "doctor": "node scripts/port-doctor.mjs",
+    "doctor:strict": "node scripts/port-doctor.mjs --strict",
+    "env:audit": "bash scripts/wsl-shell-audit.sh",
+    "env:fix": "bash scripts/wsl-shell-audit.sh --fix-user-shell",
     "wsl:forward": "node scripts/wsl-forward.mjs",
     "test": "node --test",
     "evidence": "node scripts/run-ubuntu-evidence.mjs"
