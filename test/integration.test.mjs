@@ -6,10 +6,11 @@ const token = "ci-emulator-token";
 const backendPort = 3199;
 const emulatorPort = 8199;
 const children = [];
+const cwd = new URL("../", import.meta.url);
 
-function start(file, environment) {
-  const child = spawn(process.execPath, [file], {
-    cwd: new URL("../", import.meta.url),
+function start(file, environment, args = []) {
+  const child = spawn(process.execPath, [file, ...args], {
+    cwd,
     env: { ...process.env, ...environment },
     stdio: ["ignore", "pipe", "pipe"]
   });
@@ -31,11 +32,30 @@ async function waitFor(url, attempts = 60) {
   throw new Error(`Servicio no disponible: ${url}`);
 }
 
+async function waitForExit(child, timeoutMs = 6000) {
+  let stdout = "";
+  let stderr = "";
+  child.stdout?.on("data", chunk => { stdout += chunk; });
+  child.stderr?.on("data", chunk => { stderr += chunk; });
+
+  const result = await Promise.race([
+    new Promise((resolve, reject) => {
+      child.once("error", reject);
+      child.once("exit", (code, signal) => resolve({ code, signal }));
+    }),
+    new Promise((_, reject) => setTimeout(() => reject(new Error("Proceso no termino a tiempo")), timeoutMs))
+  ]);
+
+  return { ...result, stdout, stderr };
+}
+
 test.after(() => {
-  for (const child of children) child.kill("SIGTERM");
+  for (const child of children) {
+    if (child.exitCode === null && child.signalCode === null) child.kill("SIGTERM");
+  }
 });
 
-test("ejecuta el ciclo health -> pending -> applied en Ubuntu", async () => {
+test("ejecuta el ciclo health -> pending -> applied y tolera diagnosticos interactivos", async () => {
   start("mock-backend.mjs", {
     MOCK_BACKEND_PORT: String(backendPort),
     MOCK_BACKEND_HOST: "0.0.0.0",
@@ -50,6 +70,31 @@ test("ejecuta el ciclo health -> pending -> applied en Ubuntu", async () => {
 
   const base = `http://127.0.0.1:${emulatorPort}`;
   await waitFor(`${base}/healthz`);
+
+  const duplicate = start("server.mjs", {
+    EMULATOR_PORT: String(emulatorPort),
+    EMULATOR_HOST: "0.0.0.0",
+    ASSISTANT_BASE_URL: `http://127.0.0.1:${backendPort}`,
+    ESP32_API_TOKEN: token
+  });
+  const duplicateResult = await waitForExit(duplicate);
+  assert.equal(duplicateResult.code, 0);
+  assert.match(`${duplicateResult.stdout}\n${duplicateResult.stderr}`, /Emulador ya esta activo/);
+
+  const doctorEnvironment = {
+    EMULATOR_PORT: String(emulatorPort),
+    DEVCONTAINER: "1"
+  };
+
+  const interactiveDoctor = start("scripts/port-doctor.mjs", doctorEnvironment);
+  const interactiveDoctorResult = await waitForExit(interactiveDoctor);
+  assert.equal(interactiveDoctorResult.code, 0);
+  assert.match(`${interactiveDoctorResult.stdout}\n${interactiveDoctorResult.stderr}`, /INTERACTIVO/);
+
+  const strictDoctor = start("scripts/port-doctor.mjs", doctorEnvironment, ["--strict"]);
+  const strictDoctorResult = await waitForExit(strictDoctor);
+  assert.equal(strictDoctorResult.code, 2);
+  assert.match(`${strictDoctorResult.stdout}\n${strictDoctorResult.stderr}`, /STRICT/);
 
   const pageStarted = performance.now();
   const pageResponse = await fetch(`${base}/`, { signal: AbortSignal.timeout(2000) });
