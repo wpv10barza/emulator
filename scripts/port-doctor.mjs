@@ -81,6 +81,16 @@ async function windowsProbe(url) {
   }
 }
 
+function reportExternalUnverified(message) {
+  if (message) console.warn(message);
+  if (strict) {
+    console.error("- STRICT: el acceso externo no fue verificado; salida 2.");
+    process.exitCode = 2;
+  } else {
+    console.warn("- INTERACTIVO: el emulador interno esta sano; esta advertencia no cierra la terminal (salida 0).");
+  }
+}
+
 async function runDoctor() {
   const version = await procVersion();
   const wsl = isWslRuntime(version);
@@ -103,7 +113,17 @@ async function runDoctor() {
   console.log(`- URL dentro de WSL/Linux: http://127.0.0.1:${port}`);
   for (const url of directUrls) console.log(`- Candidato directo Windows/red: ${url}`);
 
-  if (!(wsl || devContainer)) return;
+  // En Dev Container no se debe ejecutar PowerShell de Windows desde /mnt/c.
+  // VS Code gestiona el acceso mediante forwardPorts; probar portproxy/PowerShell
+  // hace el resultado dependiente del host WSL y vuelve los tests no deterministas.
+  if (devContainer) {
+    console.warn("- Dev Container detectado: omitiendo PowerShell/portproxy del host WSL.");
+    console.warn("- Use VS Code > Ports y los forwardPorts 8080/3000 versionados.");
+    reportExternalUnverified();
+    return;
+  }
+
+  if (!wsl) return;
 
   const windowsLoopback = await windowsProbe(localHealthUrl);
   if (windowsLoopback.ok) {
@@ -125,18 +145,7 @@ async function runDoctor() {
     return;
   }
 
-  if (devContainer) {
-    console.warn("- Aplique la configuracion versionada: Dev Containers: Rebuild and Reopen in Container.");
-    console.warn("- Luego abra el puerto 8080 desde la pestana Ports.");
-  } else if (wsl) {
-    console.warn("- Ejecute el puente de respaldo: npm run wsl:forward");
-    console.warn("- Tras aceptar UAC, abra http://127.0.0.1:18080");
-  }
-
-  if (strict) {
-    console.error("- STRICT: el acceso externo no fue verificado; salida 2.");
-    process.exitCode = 2;
-  } else {
-    console.warn("- INTERACTIVO: el emulador interno esta sano; esta advertencia no cierra la terminal (salida 0).");
-  }
+  console.warn("- Ejecute el puente de respaldo: npm run wsl:forward");
+  console.warn("- Tras aceptar UAC, abra http://127.0.0.1:18080");
+  reportExternalUnverified();
 }
